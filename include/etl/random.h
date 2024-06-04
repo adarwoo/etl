@@ -1,4 +1,4 @@
-﻿///\file
+///\file
 
 /******************************************************************************
 The MIT License(MIT)
@@ -7,7 +7,7 @@ Embedded Template Library.
 https://github.com/ETLCPP/etl
 https://www.etlcpp.com
 
-Copyright(c) 2017 jwellbelove
+Copyright(c) 2017 John Wellbelove
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files(the "Software"), to deal
@@ -31,10 +31,10 @@ SOFTWARE.
 #ifndef ETL_RANDOM_INCLUDED
 #define ETL_RANDOM_INCLUDED
 
-#include <stdint.h>
-
 #include "platform.h"
 #include "binary.h"
+
+#include <stdint.h>
 
 namespace etl
 {
@@ -462,10 +462,12 @@ namespace etl
 
     random_pcg()
     {
+#include "private/diagnostic_useless_cast_push.h"
       // An attempt to come up with a unique non-zero seed,
       // based on the address of the instance.
       uintptr_t n = reinterpret_cast<uintptr_t>(this);
       value = static_cast<uint64_t>(n);
+#include "private/diagnostic_pop.h"
     }
 
     //***************************************************************************
@@ -521,7 +523,7 @@ namespace etl
   };
 #endif
 
-#if ETL_8BIT_SUPPORT
+#if ETL_USING_8BIT_TYPES
   //***************************************************************************
   /// A 32 bit random number generator.
   /// Applies a user supplied 32bit hash to a counter.

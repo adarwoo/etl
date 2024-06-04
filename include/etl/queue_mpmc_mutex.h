@@ -7,7 +7,7 @@ Embedded Template Library.
 https://github.com/ETLCPP/etl
 https://www.etlcpp.com
 
-Copyright(c) 2018 jwellbelove
+Copyright(c) 2018 John Wellbelove
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files(the "Software"), to deal
@@ -31,9 +31,6 @@ SOFTWARE.
 #ifndef ETL_MPMC_QUEUE_MUTEX_INCLUDED
 #define ETL_MPMC_QUEUE_MUTEX_INCLUDED
 
-#include <stddef.h>
-#include <stdint.h>
-
 #include "platform.h"
 #include "mutex.h"
 
@@ -46,9 +43,12 @@ SOFTWARE.
 #include "utility.h"
 #include "placement_new.h"
 
+#include <stddef.h>
+#include <stdint.h>
+
 namespace etl
 {
-  template <const size_t MEMORY_MODEL = etl::memory_model::MEMORY_MODEL_LARGE>
+  template <size_t MEMORY_MODEL = etl::memory_model::MEMORY_MODEL_LARGE>
   class queue_mpmc_mutex_base
   {
   public:
@@ -89,7 +89,7 @@ namespace etl
     {
       ++index;
 
-      if (index == maximum)
+      if (index == maximum) ETL_UNLIKELY
       {
         index = 0;
       }
@@ -120,7 +120,7 @@ namespace etl
 
   //***************************************************************************
   ///\ingroup queue_mpmc
-  ///\brief This is the base for all queue_mpmc_mutexs that contain a particular type.
+  ///\brief This is the base for all queue_mpmc_mutex's that contain a particular type.
   ///\details Normally a reference to this type will be taken from a derived queue_mpmc_mutex.
   ///\code
   /// etl::queue_mpmc_mutex<int, 10> myQueue;
@@ -141,7 +141,7 @@ namespace etl
     typedef T                          value_type;      ///< The type stored in the queue.
     typedef T&                         reference;       ///< A reference to the type used in the queue.
     typedef const T&                   const_reference; ///< A const reference to the type used in the queue.
-#if ETL_CPP11_SUPPORTED
+#if ETL_USING_CPP11
     typedef T&&                        rvalue_reference;///< An rvalue reference to the type used in the queue.
 #endif
     typedef typename base_t::size_type size_type;       ///< The type used for determining the size of the queue.
@@ -166,7 +166,7 @@ namespace etl
       return result;
     }
 
-#if ETL_CPP11_SUPPORTED
+#if ETL_USING_CPP11
     //*************************************************************************
     /// Push a value to the queue.
     //*************************************************************************
@@ -182,7 +182,7 @@ namespace etl
     }
 #endif
 
-#if ETL_CPP11_SUPPORTED && ETL_NOT_USING_STLPORT && !defined(ETL_QUEUE_MPMC_MUTEX_FORCE_CPP03)
+#if ETL_USING_CPP11 && ETL_NOT_USING_STLPORT && !defined(ETL_QUEUE_MPMC_MUTEX_FORCE_CPP03_IMPLEMENTATION)
     //*************************************************************************
     /// Constructs a value in the queue 'in place'.
     /// If asserts or exceptions are enabled, throws an etl::queue_full if the queue if already full.
@@ -199,6 +199,21 @@ namespace etl
       return result;
     }
 #else
+    //*************************************************************************
+    /// Constructs a value in the queue 'in place'.
+    /// If asserts or exceptions are enabled, throws an etl::queue_full if the queue if already full.
+    //*************************************************************************
+    bool emplace()
+    {
+      access.lock();
+
+      bool result = emplace_implementation();
+
+      access.unlock();
+
+      return result;
+    }
+
     //*************************************************************************
     /// Constructs a value in the queue 'in place'.
     /// If asserts or exceptions are enabled, throws an etl::queue_full if the queue if already full.
@@ -286,6 +301,34 @@ namespace etl
       access.lock();
 
       bool result = pop_implementation();
+
+      access.unlock();
+
+      return result;
+    }
+
+    //*************************************************************************
+    /// Peek a value at the front of the queue.
+    //*************************************************************************
+    reference front()
+    {
+      access.lock();
+
+      reference result = front_implementation();
+
+      access.unlock();
+
+      return result;
+    }
+
+    //*************************************************************************
+    /// Peek a value at the front of the queue.
+    //*************************************************************************
+    const_reference front() const
+    {
+      access.lock();
+
+      const_reference result = front_implementation();
 
       access.unlock();
 
@@ -396,7 +439,7 @@ namespace etl
       return false;
     }
 
-#if ETL_CPP11_SUPPORTED && ETL_NOT_USING_STLPORT && !defined(ETL_QUEUE_MPMC_MUTEX_FORCE_CPP03)
+#if ETL_USING_CPP11 && ETL_NOT_USING_STLPORT && !defined(ETL_QUEUE_MPMC_MUTEX_FORCE_CPP03_IMPLEMENTATION)
     //*************************************************************************
     /// Push a value to the queue.
     //*************************************************************************
@@ -418,7 +461,7 @@ namespace etl
     }
 #endif
 
-#if ETL_CPP11_SUPPORTED && ETL_NOT_USING_STLPORT && !defined(ETL_QUEUE_MPMC_MUTEX_FORCE_CPP03)
+#if ETL_USING_CPP11 && ETL_NOT_USING_STLPORT && !defined(ETL_QUEUE_MPMC_MUTEX_FORCE_CPP03_IMPLEMENTATION)
     //*************************************************************************
     /// Constructs a value in the queue 'in place'.
     //*************************************************************************
@@ -442,6 +485,24 @@ namespace etl
 #else
     //*************************************************************************
     /// Constructs a value in the queue 'in place'.
+    //*************************************************************************
+    bool emplace_implementation()
+    {
+      if (current_size != MAX_SIZE)
+      {
+        ::new (&p_buffer[write_index]) T();
+
+        write_index = get_next_index(write_index, MAX_SIZE);
+
+        ++current_size;
+
+        return true;
+      }
+
+      // Queue is full.
+      return false;
+    }
+
     //*************************************************************************
     template <typename T1>
     bool emplace_implementation(const T1& value1)
@@ -536,7 +597,7 @@ namespace etl
         return false;
       }
 
-#if ETL_CPP11_SUPPORTED && ETL_NOT_USING_STLPORT && !defined(ETL_QUEUE_LOCKABLE_FORCE_CPP03)
+#if ETL_USING_CPP11 && ETL_NOT_USING_STLPORT && !defined(ETL_QUEUE_LOCKABLE_FORCE_CPP03_IMPLEMENTATION)
       value = etl::move(p_buffer[read_index]);
 #else
       value = p_buffer[read_index];
@@ -569,6 +630,22 @@ namespace etl
       --current_size;
 
       return true;
+    }
+
+    //*************************************************************************
+    /// Peek a value at the front of the queue.
+    //*************************************************************************
+    reference front_implementation()
+    {
+      return p_buffer[read_index];
+    }
+
+    //*************************************************************************
+    /// Peek a value at the front of the queue.
+    //*************************************************************************
+    const_reference front_implementation() const
+    {
+      return p_buffer[read_index];
     }
 
     // Disable copy construction and assignment.
@@ -624,7 +701,7 @@ namespace etl
     queue_mpmc_mutex(const queue_mpmc_mutex&) ETL_DELETE;
     queue_mpmc_mutex& operator = (const queue_mpmc_mutex&) ETL_DELETE;
 
-#if ETL_CPP11_SUPPORTED
+#if ETL_USING_CPP11
     queue_mpmc_mutex(queue_mpmc_mutex&&) = delete;
     queue_mpmc_mutex& operator = (queue_mpmc_mutex&&) = delete;
 #endif
@@ -632,6 +709,9 @@ namespace etl
     /// The uninitialised buffer of T used in the queue_mpmc_mutex.
     typename etl::aligned_storage<sizeof(T), etl::alignment_of<T>::value>::type buffer[MAX_SIZE];
   };
+
+  template <typename T, size_t SIZE, const size_t MEMORY_MODEL>  
+  ETL_CONSTANT typename queue_mpmc_mutex<T, SIZE, MEMORY_MODEL>::size_type queue_mpmc_mutex<T, SIZE, MEMORY_MODEL>::MAX_SIZE;
 }
 
 #endif

@@ -7,7 +7,7 @@ Embedded Template Library.
 https://github.com/ETLCPP/etl
 https://www.etlcpp.com
 
-Copyright(c) 2014 jwellbelove, Mark Kitson
+Copyright(c) 2014 John Wellbelove, Mark Kitson
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files(the "Software"), to deal
@@ -31,13 +31,10 @@ SOFTWARE.
 #ifndef ETL_STACK_INCLUDED
 #define ETL_STACK_INCLUDED
 
-#include <stddef.h>
-#include <stdint.h>
-
 #include "platform.h"
 #include "algorithm.h"
 #include "utility.h"
-#include "container.h"
+#include "iterator.h"
 #include "alignment.h"
 #include "array.h"
 #include "exception.h"
@@ -45,6 +42,9 @@ SOFTWARE.
 #include "debug_count.h"
 #include "type_traits.h"
 #include "placement_new.h"
+
+#include <stddef.h>
+#include <stdint.h>
 
 //*****************************************************************************
 ///\defgroup stack stack
@@ -100,7 +100,7 @@ namespace etl
   //***************************************************************************
   ///\ingroup stack
   /// A fixed capacity stack written in the STL style.
-  /// \warntopg This stack cannot be used for concurrent access from multiple threads.
+  /// \warning This stack cannot be used for concurrent access from multiple threads.
   //***************************************************************************
   class stack_base
   {
@@ -176,7 +176,7 @@ namespace etl
     void add_in()
     {
       top_index = current_size++;
-      ETL_INCREMENT_DEBUG_COUNT
+      ETL_INCREMENT_DEBUG_COUNT;
     }
 
     //*************************************************************************
@@ -186,7 +186,7 @@ namespace etl
     {
       --top_index;
       --current_size;
-      ETL_DECREMENT_DEBUG_COUNT
+      ETL_DECREMENT_DEBUG_COUNT;
     }
 
     //*************************************************************************
@@ -196,13 +196,13 @@ namespace etl
     {
       top_index = 0;
       current_size = 0;
-      ETL_RESET_DEBUG_COUNT
+      ETL_RESET_DEBUG_COUNT;
     }
 
     size_type top_index;      ///< The index of the top of the stack.
     size_type current_size;   ///< The number of items in the stack.
     const size_type CAPACITY; ///< The maximum number of items in the stack.
-    ETL_DECLARE_DEBUG_COUNT  ///< For internal debugging purposes.
+    ETL_DECLARE_DEBUG_COUNT;  ///< For internal debugging purposes.
   };
 
   //***************************************************************************
@@ -224,7 +224,7 @@ namespace etl
     typedef T                     value_type;      ///< The type stored in the stack.
     typedef T&                    reference;       ///< A reference to the type used in the stack.
     typedef const T&              const_reference; ///< A const reference to the type used in the stack.
-#if ETL_CPP11_SUPPORTED
+#if ETL_USING_CPP11
     typedef T&&                   rvalue_reference;///< An rvalue reference to the type used in the stack.
 #endif
     typedef T*                    pointer;         ///< A pointer to the type used in the stack.
@@ -260,7 +260,7 @@ namespace etl
       ::new (&p_buffer[top_index]) T(value);
     }
 
-#if ETL_CPP11_SUPPORTED
+#if ETL_USING_CPP11
     //*************************************************************************
     /// Adds a value to the stack.
     /// If asserts or exceptions are enabled, throws an etl::stack_full if the stack is already full.
@@ -276,7 +276,7 @@ namespace etl
     }
 #endif
 
-#if ETL_CPP11_SUPPORTED && ETL_NOT_USING_STLPORT
+#if ETL_USING_CPP11 && ETL_NOT_USING_STLPORT
     //*************************************************************************
     /// Constructs a value in the stack place'.
     /// If asserts or exceptions are enabled, throws an etl::stack_full if the stack is already full.
@@ -292,6 +292,20 @@ namespace etl
       ::new (&p_buffer[top_index]) T(etl::forward<Args>(args)...);
     }
 #else
+    //*************************************************************************
+    /// Constructs a value in the stack place'.
+    /// If asserts or exceptions are enabled, throws an etl::stack_full if the stack is already full.
+    ///\param value The value to push to the stack.
+    //*************************************************************************
+    void emplace()
+    {
+#if defined(ETL_CHECK_PUSH_POP)
+      ETL_ASSERT(!full(), ETL_ERROR(stack_full));
+#endif
+      base_t::add_in();
+      ::new (&p_buffer[top_index]) T();
+    }
+
     //*************************************************************************
     /// Constructs a value in the stack place'.
     /// If asserts or exceptions are enabled, throws an etl::stack_full if the stack is already full.
@@ -436,7 +450,7 @@ namespace etl
       return *this;
     }
 
-#if ETL_CPP11_SUPPORTED
+#if ETL_USING_CPP11
     //*************************************************************************
     /// Assignment operator.
     //*************************************************************************
@@ -468,7 +482,7 @@ namespace etl
       }
     }
 
-#if ETL_CPP11_SUPPORTED
+#if ETL_USING_CPP11
     //*************************************************************************
     /// Make this a clone of the supplied stack
     //*************************************************************************
@@ -549,7 +563,7 @@ namespace etl
       etl::istack<T>::clone(rhs);
     }
 
-#if ETL_CPP11_SUPPORTED
+#if ETL_USING_CPP11
     //*************************************************************************
     /// Copy constructor
     //*************************************************************************
@@ -581,7 +595,7 @@ namespace etl
       return *this;
     }
 
-#if ETL_CPP11_SUPPORTED
+#if ETL_USING_CPP11
     //*************************************************************************
     /// Move assignment operator.
     //*************************************************************************
@@ -598,9 +612,12 @@ namespace etl
 
   private:
 
-    /// The unintitialised buffer of T used in the stack.
+    /// The uninitialised buffer of T used in the stack.
     container_type buffer[SIZE];
   };
+
+  template <typename T, const size_t SIZE>
+  ETL_CONSTANT size_t stack<T, SIZE>::MAX_SIZE;
 }
 
 #endif

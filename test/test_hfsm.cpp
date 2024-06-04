@@ -33,6 +33,7 @@ SOFTWARE.
 #include "etl/container.h"
 #include "etl/packet.h"
 #include "etl/queue.h"
+#include "etl/circular_buffer.h"
 
 #include <iostream>
 
@@ -196,6 +197,9 @@ namespace
       stoppedCount = 0;
       isLampOn = false;
       speed = 0;
+
+      stateEnterHistory.clear();
+      stateExitHistory.clear();
     }
 
     //***********************************
@@ -238,6 +242,10 @@ namespace
     int stoppedCount;
     bool isLampOn;
     int speed;
+
+    // A circular buffer is used so that data overflows won't assert in tests which don't use this data
+    etl::circular_buffer<StateId::enum_type, 10UL> stateEnterHistory{};
+    etl::circular_buffer<StateId::enum_type, 10UL> stateExitHistory{};
   };
 
   //***********************************
@@ -271,8 +279,18 @@ namespace
     //***********************************
     etl::fsm_state_id_t on_enter_state()
     {
-      get_fsm_context().TurnRunningLampOff();
+      auto& context = get_fsm_context();
+      context.stateEnterHistory.push(static_cast<StateId::enum_type>(get_state_id()));
+      context.TurnRunningLampOff();
+
       return No_State_Change;
+    }
+
+    //***********************************
+    void on_exit_state()
+    {
+      auto& context = get_fsm_context();
+      context.stateExitHistory.push(static_cast<StateId::enum_type>(get_state_id()));
     }
   };
 
@@ -284,7 +302,7 @@ namespace
   public:
 
     //***********************************
-    etl::fsm_state_id_t on_event(const EStop& event)
+    etl::fsm_state_id_t on_event(const EStop&)
     {
       ++get_fsm_context().stopCount;
 
@@ -301,9 +319,18 @@ namespace
     //***********************************
     etl::fsm_state_id_t on_enter_state()
     {
-      get_fsm_context().TurnRunningLampOn();
+      auto& context = get_fsm_context();
+      context.stateEnterHistory.push(static_cast<StateId::enum_type>(get_state_id()));
+      context.TurnRunningLampOn();
 
       return No_State_Change;
+    }
+
+    //***********************************
+    void on_exit_state()
+    {
+      auto& context = get_fsm_context();
+      context.stateExitHistory.push(static_cast<StateId::enum_type>(get_state_id()));
     }
   };
 
@@ -336,10 +363,20 @@ namespace
       return No_State_Change;
     }
 
+    //***********************************
     etl::fsm_state_id_t on_enter_state()
     {
-      ++get_fsm_context().windUpStartCount;
+      auto& context = get_fsm_context();
+      context.stateEnterHistory.push(static_cast<StateId::enum_type>(get_state_id()));
+      ++context.windUpStartCount;
       return No_State_Change;
+    }
+
+    //***********************************
+    void on_exit_state()
+    {
+      auto& context = get_fsm_context();
+      context.stateExitHistory.push(static_cast<StateId::enum_type>(get_state_id()));
     }
   };
 
@@ -371,14 +408,27 @@ namespace
       ++get_fsm_context().unknownCount;
       return No_State_Change;
     }
+
+    //***********************************
+    void on_exit_state()
+    {
+      auto& context = get_fsm_context();
+      context.stateExitHistory.push(static_cast<StateId::enum_type>(get_state_id()));
+    }
   };
 
   //***********************************
   // The winding down state.
   //***********************************
-  class WindingDown : public etl::fsm_state<MotorControl, WindingDown, StateId::Winding_Down, Stopped>
+  class WindingDown : public etl::fsm_state<MotorControl, WindingDown, StateId::Winding_Down, Stopped, EStop>
   {
   public:
+
+    etl::fsm_state_id_t on_event(const EStop&)
+    {
+      ++get_fsm_context().stopCount;
+      return Pass_To_Parent;
+    }
 
     //***********************************
     etl::fsm_state_id_t on_event(const Stopped&)
@@ -424,9 +474,9 @@ namespace
       CHECK(motorControl.is_producer());
       CHECK(motorControl.is_consumer());
 
-      running.set_child_states(childStates, etl::size(childStates));
+      running.set_child_states(childStates, ETL_OR_STD17::size(childStates));
 
-      motorControl.Initialise(stateList, etl::size(stateList));
+      motorControl.Initialise(stateList, ETL_OR_STD17::size(stateList));
       motorControl.reset();
       motorControl.ClearStatistics();
 
@@ -597,7 +647,7 @@ namespace
     {
       etl::null_message_router nmr;
 
-      motorControl.Initialise(stateList, etl::size(stateList)); 
+      motorControl.Initialise(stateList, ETL_OR_STD17::size(stateList)); 
       motorControl.reset();
       motorControl.ClearStatistics();
 
@@ -650,7 +700,7 @@ namespace
     {
       etl::null_message_router nmr;
 
-      motorControl.Initialise(stateList, etl::size(stateList)); 
+      motorControl.Initialise(stateList, ETL_OR_STD17::size(stateList)); 
       motorControl.reset();
       motorControl.ClearStatistics();
 
@@ -700,11 +750,66 @@ namespace
     }
 
     //*************************************************************************
+    TEST(test_hfsm_emergency_stop_from_winding_down)
+    {
+      etl::null_message_router nmr;
+
+      motorControl.Initialise(stateList, ETL_OR_STD17::size(stateList));
+      motorControl.reset();
+      motorControl.ClearStatistics();
+
+      CHECK(!motorControl.is_started());
+
+      // Start the FSM.
+      motorControl.start(false);
+      CHECK(motorControl.is_started());
+
+      // Now in Idle state.
+
+      // Send Start event.
+      motorControl.receive(Start());
+      motorControl.receive(Timeout());
+      motorControl.receive(Stop());
+
+      // Now in at speed state.
+
+      CHECK_EQUAL(StateId::Winding_Down, int(motorControl.get_state_id()));
+      CHECK_EQUAL(StateId::Winding_Down, int(motorControl.get_state().get_state_id()));
+
+      CHECK_EQUAL(true, motorControl.isLampOn);
+      CHECK_EQUAL(0, motorControl.setSpeedCount);
+      CHECK_EQUAL(0, motorControl.speed);
+      CHECK_EQUAL(1, motorControl.startCount);
+      CHECK_EQUAL(1, motorControl.stopCount);
+      CHECK_EQUAL(0, motorControl.stoppedCount);
+      CHECK_EQUAL(0, motorControl.unknownCount);
+      CHECK_EQUAL(1, motorControl.windUpCompleteCount);
+      CHECK_EQUAL(1, motorControl.windUpStartCount);
+
+      // Send emergency Stop event.
+      motorControl.receive(EStop());
+
+      // Now in Idle state.
+      CHECK_EQUAL(StateId::Idle, int(motorControl.get_state_id()));
+      CHECK_EQUAL(StateId::Idle, int(motorControl.get_state().get_state_id()));
+
+      CHECK_EQUAL(false, motorControl.isLampOn);
+      CHECK_EQUAL(0, motorControl.setSpeedCount);
+      CHECK_EQUAL(0, motorControl.speed);
+      CHECK_EQUAL(1, motorControl.startCount);
+      CHECK_EQUAL(3, motorControl.stopCount);
+      CHECK_EQUAL(0, motorControl.stoppedCount);
+      CHECK_EQUAL(0, motorControl.unknownCount);
+      CHECK_EQUAL(1, motorControl.windUpCompleteCount);
+      CHECK_EQUAL(1, motorControl.windUpStartCount);
+    }
+
+    //*************************************************************************
     TEST(test_hfsm_recursive_event)
     {
       etl::null_message_router nmr;
 
-      motorControl.Initialise(stateList, etl::size(stateList));
+      motorControl.Initialise(stateList, ETL_OR_STD17::size(stateList));
       motorControl.reset();
       motorControl.ClearStatistics();
 
@@ -790,6 +895,96 @@ namespace
       };
 
       CHECK_THROW(mc.set_states(stateList, StateId::Number_Of_States), etl::fsm_state_list_order_exception);
+    }
+
+    //*************************************************************************
+    TEST(test_hfsm_start_enters)
+    {
+      MotorControl mc;
+
+      motorControl.Initialise(stateList, ETL_OR_STD17::size(stateList));
+      motorControl.reset();
+      motorControl.ClearStatistics();
+
+      CHECK(!motorControl.is_started());
+
+      // Start the HFSM (with enters)
+      motorControl.start(true);
+      CHECK(motorControl.is_started());
+
+      // Now in Idle state.
+
+      CHECK_EQUAL(StateId::Idle, int(motorControl.get_state_id()));
+      CHECK_EQUAL(StateId::Idle, int(motorControl.get_state().get_state_id()));
+
+      CHECK_EQUAL(false, motorControl.isLampOn);
+      CHECK_EQUAL(0, motorControl.setSpeedCount);
+      CHECK_EQUAL(0, motorControl.speed);
+      CHECK_EQUAL(0, motorControl.startCount);
+      CHECK_EQUAL(0, motorControl.stopCount);
+      CHECK_EQUAL(0, motorControl.windUpCompleteCount);
+      CHECK_EQUAL(0, motorControl.windUpStartCount);
+      CHECK_EQUAL(0, motorControl.stoppedCount);
+      CHECK_EQUAL(0, motorControl.unknownCount);
+
+      etl::array<StateId::enum_type, 1UL> expectedEnters{StateId::Idle};
+      CHECK_EQUAL(expectedEnters.size(), motorControl.stateEnterHistory.size());
+      // No enters should have been performed
+      CHECK(motorControl.stateExitHistory.empty());
+
+      bool entersCorrect = std::equal(motorControl.stateEnterHistory.begin(), motorControl.stateEnterHistory.end(), expectedEnters.begin());
+      CHECK(entersCorrect);
+    }
+
+    //*************************************************************************
+    TEST(test_hfsm_reset_exits)
+    {
+      MotorControl mc;
+
+      motorControl.Initialise(stateList, ETL_OR_STD17::size(stateList));
+      motorControl.reset();
+      motorControl.ClearStatistics();
+
+      CHECK(!motorControl.is_started());
+
+      // Start the HFSM (with enters)
+      motorControl.start(false);
+      CHECK(motorControl.is_started());
+
+      // Now in Idle state.
+
+      // Send Start event.
+      motorControl.receive(Start());
+
+      // Send Timeout event
+      motorControl.receive(Timeout());
+
+      // Send SetSpeed event.
+      motorControl.receive(SetSpeed(100));
+      CHECK_EQUAL(StateId::At_Speed, int(motorControl.get_state_id()));
+      CHECK_EQUAL(StateId::At_Speed, int(motorControl.get_state().get_state_id()));
+
+      // Clean statistics before reset for clean results
+      motorControl.ClearStatistics();
+
+      // Reset HFSM (with exits)
+      motorControl.reset(true);
+
+      etl::array<StateId::enum_type, 2UL> expectedExits{StateId::At_Speed, StateId::Running};
+      CHECK_EQUAL(expectedExits.size(), motorControl.stateExitHistory.size());
+      // No enters should have been performed
+      CHECK(motorControl.stateEnterHistory.empty());
+
+      bool exitsCorrect = std::equal(motorControl.stateExitHistory.begin(), motorControl.stateExitHistory.end(), expectedExits.begin());
+      CHECK(exitsCorrect);
+    }
+
+    //*************************************************************************
+    TEST(test_fsm_no_states_and_no_start)
+    {
+      MotorControl mc;
+
+      CHECK_THROW(mc.receive(Start()), etl::fsm_not_started);
     }
   };
 }

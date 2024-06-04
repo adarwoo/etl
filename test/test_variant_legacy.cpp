@@ -5,7 +5,7 @@ Embedded Template Library.
 https://github.com/ETLCPP/etl
 https://www.etlcpp.com
 
-Copyright(c) 2014 jwellbelove
+Copyright(c) 2014 John Wellbelove
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files(the "Software"), to deal
@@ -35,6 +35,8 @@ SOFTWARE.
 #include <algorithm>
 #include <string>
 
+#include "etl/private/diagnostic_useless_cast_push.h"
+
 namespace
 {
   // Test classes for polymorphic tests.
@@ -60,6 +62,7 @@ namespace
     {
     }
 
+    virtual ~not_base() {}
     virtual void set() = 0;
     int value;
   };
@@ -81,20 +84,20 @@ namespace
   };
 
   // Test variant types.
-  typedef etl::variant<char, int, std::string> test_variant_3a;
-  typedef etl::variant<int, short, double> test_variant_3b;
+  typedef etl::legacy::variant<char, int, std::string> test_variant_3a;
+  typedef etl::legacy::variant<int, short, double> test_variant_3b;
 
-  typedef etl::variant<int8_t> test_variant_1;
-  typedef etl::variant<int8_t, uint8_t> test_variant_2;
-  typedef etl::variant<int8_t, uint8_t, int16_t> test_variant_3;
-  typedef etl::variant<int8_t, uint8_t, int16_t, uint16_t> test_variant_4;
-  typedef etl::variant<int8_t, uint8_t, int16_t, uint16_t, int32_t> test_variant_5;
-  typedef etl::variant<int8_t, uint8_t, int16_t, uint16_t, int32_t, uint32_t> test_variant_6;
-  typedef etl::variant<int8_t, uint8_t, int16_t, uint16_t, int32_t, uint32_t, int64_t> test_variant_7;
-  typedef etl::variant<int8_t, uint8_t, int16_t, uint16_t, int32_t, uint32_t, int64_t, uint64_t> test_variant_8;
+  typedef etl::legacy::variant<int8_t> test_variant_1;
+  typedef etl::legacy::variant<int8_t, uint8_t> test_variant_2;
+  typedef etl::legacy::variant<int8_t, uint8_t, int16_t> test_variant_3;
+  typedef etl::legacy::variant<int8_t, uint8_t, int16_t, uint16_t> test_variant_4;
+  typedef etl::legacy::variant<int8_t, uint8_t, int16_t, uint16_t, int32_t> test_variant_5;
+  typedef etl::legacy::variant<int8_t, uint8_t, int16_t, uint16_t, int32_t, uint32_t> test_variant_6;
+  typedef etl::legacy::variant<int8_t, uint8_t, int16_t, uint16_t, int32_t, uint32_t, int64_t> test_variant_7;
+  typedef etl::legacy::variant<int8_t, uint8_t, int16_t, uint16_t, int32_t, uint32_t, int64_t, uint64_t> test_variant_8;
 
-  typedef etl::variant<derived_1, derived_2> test_variant_polymorphic;
-  typedef etl::variant<char, unsigned char, short, unsigned short, int, unsigned int, long, unsigned long> test_variant_max_types;
+  typedef etl::legacy::variant<derived_1, derived_2> test_variant_polymorphic;
+  typedef etl::legacy::variant<char, unsigned char, short, unsigned short, int, unsigned int, long, unsigned long> test_variant_max_types;
 
   // This line should compile with no errors.
   test_variant_max_types variant_max;
@@ -199,16 +202,16 @@ namespace
     return os;
   }
 
-  typedef etl::variant<D1, D2, D3, D4> test_variant_emplace;
+  typedef etl::legacy::variant<D1, D2, D3, D4> test_variant_emplace;
 
   SUITE(test_variant)
   {
     TEST(test_alignment)
     {
-      typedef etl::variant<char, unsigned char> test_variant_a;
-      typedef etl::variant<char, short>         test_variant_b;
-      typedef etl::variant<char, int>           test_variant_c;
-      typedef etl::variant<char, double>        test_variant_d;
+      typedef etl::legacy::variant<char, unsigned char> test_variant_a;
+      typedef etl::legacy::variant<char, short>         test_variant_b;
+      typedef etl::legacy::variant<char, int>           test_variant_c;
+      typedef etl::legacy::variant<char, double>        test_variant_d;
 
       static test_variant_a a(char('1'));
       static test_variant_b b(short(2));
@@ -318,7 +321,7 @@ namespace
       variant = text;
 
       int i;
-      CHECK_THROW(i = variant, etl::variant_incorrect_type_exception);
+      CHECK_THROW(i = variant, etl::legacy::variant_incorrect_type_exception);
       (void)i;
     }
 
@@ -442,7 +445,9 @@ namespace
       test_variant_3a variant;
 
       variant = 1;
+#include "etl/private/diagnostic_self_assign_overloaded_push.h" 
       variant = variant;
+#include "etl/private/diagnostic_pop.h" 
 
       CHECK_EQUAL(1, variant.get<int>());
     }
@@ -454,7 +459,7 @@ namespace
       variant = 1;
 
       char c;
-      CHECK_THROW(c = variant.get<char>(), etl::variant_incorrect_type_exception);
+      CHECK_THROW(c = variant.get<char>(), etl::legacy::variant_incorrect_type_exception);
       (void)c;
     }
 
@@ -687,9 +692,11 @@ namespace
       ui16 = variant8;
       CHECK_EQUAL(ui16, variant8.get<uint16_t>());
 
+#include "etl/private/diagnostic_useless_cast_push.h"
       variant8 = int32_t(5);
       i32 = variant8;
       CHECK_EQUAL(i32, variant8.get<int32_t>());
+#include "etl/private/diagnostic_pop.h"
 
       variant8 = uint32_t(6);
       ui32 = variant8;
@@ -705,7 +712,7 @@ namespace
     }
 
     //*************************************************************************
-    TEST(TestConversionOperatorsConstReference)
+    TEST(test_conversion_operators_const_reference)
     {
       test_variant_3a variant;
       variant = 1;
@@ -730,7 +737,7 @@ namespace
     }
 
     //*************************************************************************
-    TEST(TestSwap)
+    TEST(test_swap)
     {
       test_variant_3a variant_1;
       test_variant_3a variant_2;
@@ -745,7 +752,7 @@ namespace
     }
 
     //*************************************************************************
-    TEST(TestClear)
+    TEST(test_clear)
     {
       test_variant_3a variant;
 
@@ -756,21 +763,59 @@ namespace
     }
 
     //*************************************************************************
-    TEST(TestPolymorphic)
+    TEST(test_polymorphic)
     {
-      test_variant_polymorphic variant;
+      derived_1 derived1;
+      derived1.set();
 
-      variant = derived_1();
-      variant.upcast<base>().set();
-      CHECK_EQUAL(1, variant.get<derived_1>().value);
+      test_variant_polymorphic variant1;
+      CHECK(!variant1.is_base_of<base>());
+      CHECK(!variant1.is_base_of<not_base>());
 
-      variant = derived_2();
-      variant.upcast<base>().set();
-      CHECK_EQUAL(2, variant.get<derived_2>().value);
+      variant1 = derived1;
+      CHECK(variant1.is_base_of<base>());
+      CHECK(!variant1.is_base_of<not_base>());
+      CHECK_EQUAL(1, variant1.upcast<base>().value);
+      CHECK_THROW(variant1.upcast<not_base>(), etl::legacy::variant_not_a_base_exception);
+      CHECK_EQUAL((void*)(0U), variant1.upcast_ptr<not_base>());
+
+      derived_2 derived2;
+      derived2.set();
+
+      variant1 = derived2;
+      CHECK(variant1.is_base_of<base>());
+      CHECK(!variant1.is_base_of<not_base>());
+      CHECK_EQUAL(2, variant1.upcast<base>().value);
+      CHECK_THROW(variant1.upcast<not_base>(), etl::legacy::variant_not_a_base_exception);
+      CHECK_EQUAL((void*)(0U), variant1.upcast_ptr<not_base>());
     }
 
     //*************************************************************************
-    TEST(TestEmplace)
+    TEST(test_polymorphic_const)
+    {
+      derived_1 derived1;
+      derived1.set();
+
+      const test_variant_polymorphic variant1(derived1);
+      CHECK(variant1.is_base_of<base>());
+      CHECK(!variant1.is_base_of<not_base>());
+      CHECK_EQUAL(1, variant1.upcast<base>().value);
+      CHECK_THROW(variant1.upcast<not_base>(), etl::legacy::variant_not_a_base_exception);
+      CHECK_EQUAL((void*)(0U), variant1.upcast_ptr<not_base>());
+
+      derived_2 derived2;
+      derived2.set();
+
+      const test_variant_polymorphic variant2(derived2);
+      CHECK(variant2.is_base_of<base>());
+      CHECK(!variant2.is_base_of<not_base>());
+      CHECK_EQUAL(2, variant2.upcast<base>().value);
+      CHECK_THROW(variant2.upcast<not_base>(), etl::legacy::variant_not_a_base_exception);
+      CHECK_EQUAL((void*)(0U), variant2.upcast_ptr<not_base>());
+    }
+
+    //*************************************************************************
+    TEST(test_emplace)
     {
       test_variant_emplace variant;
 
@@ -790,5 +835,105 @@ namespace
       CHECK(variant.is_type<D4>());
       CHECK_EQUAL(D4("1", "2", "3", "4"), variant.get<D4>());
     }
+
+    struct variant_test_visit_dispatcher 
+    {
+      // const overloads
+      int8_t operator()(int8_t&) const 
+      {
+        return 1;
+      }
+      
+      int8_t operator()(int8_t const&) const 
+      {
+        return 10;
+      }
+      
+      int8_t operator()(uint8_t&) const 
+      {
+        return 2;
+      }
+      
+      int8_t operator()(uint8_t const&) const 
+      {
+        return 20;
+      }
+      
+      int8_t operator()(int16_t&) const 
+      {
+        return 3;
+      }
+      
+      int8_t operator()(int16_t const&) const 
+      {
+        return 30;
+      }
+
+      // non-const overloads
+      int8_t operator()(int8_t&) 
+      {
+        return 5;
+      }
+
+      int8_t operator()(int8_t const&) 
+      {
+        return 50;
+      }
+
+      int8_t operator()(uint8_t&) 
+      {
+        return 6;
+      }
+
+      int8_t operator()(uint8_t const&) 
+      {
+        return 60;
+      }
+
+      int8_t operator()(int16_t&) 
+      {
+        return 7;
+      }
+
+      int8_t operator()(int16_t const&) 
+      {
+        return 70;
+      }
+
+      template<typename T>
+      int8_t operator()(T const&) const 
+      {
+        return -1;
+      }
+    };
+
+    //*************************************************************************
+    TEST(test_variant_visit)
+    {
+      test_variant_3 variant;
+      variant = int8_t{};
+      // c++98 should generate a const ref of dispatcher.
+      int16_t type = etl::legacy::visit<int16_t>(variant_test_visit_dispatcher{}, variant);
+      CHECK_EQUAL(1, type);
+      test_variant_3 const& variant_const = variant;
+      type = etl::legacy::visit<int16_t>(variant_test_visit_dispatcher{}, variant_const);
+      CHECK_EQUAL(10, type);
+
+      variant_test_visit_dispatcher visitor;
+      type = etl::legacy::visit<int16_t>(visitor, variant_const);
+      CHECK_EQUAL(50, type);
+
+      variant = int16_t{};
+      type = etl::legacy::visit<int16_t>(variant_test_visit_dispatcher{}, variant);
+      CHECK_EQUAL(3, type);
+
+      type = etl::legacy::visit<int16_t>(variant_test_visit_dispatcher{}, variant_const);
+      CHECK_EQUAL(30, type);
+
+      type = etl::legacy::visit<int16_t>(visitor, variant_const);
+      CHECK_EQUAL(70, type);
+    }
   };
 }
+
+#include "etl/private/diagnostic_pop.h"

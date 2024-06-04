@@ -7,7 +7,7 @@ Embedded Template Library.
 https://github.com/ETLCPP/etl
 https://www.etlcpp.com
 
-Copyright(c) 2016 jwellbelove
+Copyright(c) 2016 John Wellbelove
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files(the "Software"), to deal
@@ -33,20 +33,15 @@ SOFTWARE.
 
 #define ETL_IN_PVOIDVECTOR
 
-#include <stddef.h>
-
 #include "../platform.h"
 #include "../algorithm.h"
 #include "vector_base.h"
 #include "../type_traits.h"
 #include "../error_handler.h"
-
 #include "../functional.h"
 #include "../iterator.h"
 
-#ifdef ETL_COMPILER_GCC
-#pragma GCC diagnostic ignored "-Wunused-variable"
-#endif
+#include <stddef.h>
 
 #include "minmax_push.h"
 
@@ -190,7 +185,7 @@ namespace etl
     //*********************************************************************
     void resize(size_t new_size)
     {
-      ETL_ASSERT(new_size <= CAPACITY, ETL_ERROR(vector_full));
+      ETL_ASSERT_OR_RETURN(new_size <= CAPACITY, ETL_ERROR(vector_full));
 
       p_end = p_buffer + new_size;
     }
@@ -204,7 +199,7 @@ namespace etl
     //*********************************************************************
     void resize(size_t new_size, value_type value)
     {
-      ETL_ASSERT(new_size <= CAPACITY, ETL_ERROR(vector_full));
+      ETL_ASSERT_OR_RETURN(new_size <= CAPACITY, ETL_ERROR(vector_full));
 
       pointer p_new_end = p_buffer + new_size;
 
@@ -223,7 +218,7 @@ namespace etl
     //*********************************************************************
     void uninitialized_resize(size_t new_size)
     {
-      ETL_ASSERT(new_size <= CAPACITY, ETL_ERROR(vector_full));
+      ETL_ASSERT_OR_RETURN(new_size <= CAPACITY, ETL_ERROR(vector_full));
 
       p_end = p_buffer + new_size;
     }
@@ -337,16 +332,17 @@ namespace etl
     typename etl::enable_if<!etl::is_pointer<TIterator>::value, void>::type
       assign(TIterator first, TIterator last)
     {
-#if defined(ETL_DEBUG)
+#if ETL_IS_DEBUG_BUILD
       difference_type d = etl::distance(first, last);
-      ETL_ASSERT(static_cast<size_t>(d) <= CAPACITY, ETL_ERROR(vector_full));
+      ETL_ASSERT_OR_RETURN(static_cast<size_t>(d) <= CAPACITY, ETL_ERROR(vector_full));
 #endif
 
       initialise();
 
       while (first != last)
       {
-        *p_end++ = (void*)(*first++);
+        *p_end++ = (void*)(*first);
+        ++first;
       }
     }
 
@@ -361,9 +357,9 @@ namespace etl
     typename etl::enable_if<etl::is_pointer<TIterator>::value, void>::type
       assign(TIterator first, TIterator last)
     {
-#if defined(ETL_DEBUG)     
+#if ETL_IS_DEBUG_BUILD     
       difference_type d = etl::distance(first, last);
-      ETL_ASSERT(static_cast<size_t>(d) <= CAPACITY, ETL_ERROR(vector_full));
+      ETL_ASSERT_OR_RETURN(static_cast<size_t>(d) <= CAPACITY, ETL_ERROR(vector_full));
 #endif
 
       initialise();
@@ -382,7 +378,7 @@ namespace etl
     //*********************************************************************
     void assign(size_t n, value_type value)
     {
-      ETL_ASSERT(n <= CAPACITY, ETL_ERROR(vector_full));
+      ETL_ASSERT_OR_RETURN(n <= CAPACITY, ETL_ERROR(vector_full));
 
       initialise();
 
@@ -405,7 +401,7 @@ namespace etl
     void push_back(value_type value)
     {
 #if defined(ETL_CHECK_PUSH_POP)
-      ETL_ASSERT(size() != CAPACITY, ETL_ERROR(vector_full));
+      ETL_ASSERT_OR_RETURN(size() != CAPACITY, ETL_ERROR(vector_full));
 #endif
       *p_end++ = value;
     }
@@ -418,7 +414,7 @@ namespace etl
     void emplace_back(value_type value)
     {
 #if defined(ETL_CHECK_PUSH_POP)
-      ETL_ASSERT(size() != CAPACITY, ETL_ERROR(vector_full));
+      ETL_ASSERT_OR_RETURN(size() != CAPACITY, ETL_ERROR(vector_full));
 #endif
       * p_end++ = value;
     }
@@ -430,7 +426,7 @@ namespace etl
     void pop_back()
     {
 #if defined(ETL_CHECK_PUSH_POP)
-      ETL_ASSERT(size() > 0, ETL_ERROR(vector_empty));
+      ETL_ASSERT_OR_RETURN(size() > 0, ETL_ERROR(vector_empty));
 #endif
       --p_end;
     }
@@ -441,46 +437,94 @@ namespace etl
     ///\param position The position to insert before.
     ///\param value    The value to insert.
     //*********************************************************************
-    iterator insert(iterator position, value_type value)
+#if defined(ETL_COMPILER_GCC) && defined(ETL_IN_UNIT_TEST)
+  #include "diagnostic_array_bounds_push.h"
+#endif
+    iterator insert(const_iterator position, value_type value)
     {
       ETL_ASSERT(size() != CAPACITY, ETL_ERROR(vector_full));
 
-      if (position != end())
+      iterator position_ = to_iterator(position);
+      
+      if (size() != CAPACITY)
       {
-        ++p_end;
-        etl::copy_backward(position, end() - 1, end());
-        *position = value;
-      }
-      else
-      {
-        *p_end++ = value;
+        if (position_ != end())
+        {
+          ++p_end;
+          etl::copy_backward(position_, end() - 1, end());
+          *position_ = value;
+        }
+        else
+        {
+          *p_end++ = value;
+        }
       }
 
-      return position;
+      return position_;
     }
-
+#if defined(ETL_COMPILER_GCC) && defined(ETL_IN_UNIT_TEST)
+  #include "diagnostic_pop.h"
+#endif
 
     //*************************************************************************
     /// Emplaces a value to the vector at the specified position.
     /// If asserts or exceptions are enabled, emits vector_full if the vector is already full.
     //*************************************************************************
-    iterator emplace(iterator position, value_type value)
+#if defined(ETL_COMPILER_GCC) && defined(ETL_IN_UNIT_TEST)
+  #include "diagnostic_array_bounds_push.h"
+#endif
+    iterator emplace(const_iterator position)
     {
       ETL_ASSERT(size() != CAPACITY, ETL_ERROR(vector_full));
 
-      if (position != end())
+      iterator position_ = to_iterator(position);
+
+      if (position_ != end())
       {
         ++p_end;
-        etl::copy_backward(position, end() - 1, end());
-        *position = value;
+        etl::copy_backward(position_, end() - 1, end());
+        *position_ = ETL_NULLPTR;
+      }
+      else
+      {
+        *p_end++ = ETL_NULLPTR;
+      }
+
+      return position_;
+    }
+#if defined(ETL_COMPILER_GCC) && defined(ETL_IN_UNIT_TEST)
+  #include "diagnostic_pop.h"
+#endif
+
+    //*************************************************************************
+    /// Emplaces a value to the vector at the specified position.
+    /// If asserts or exceptions are enabled, emits vector_full if the vector is already full.
+    //*************************************************************************
+#if defined(ETL_COMPILER_GCC) && defined(ETL_IN_UNIT_TEST)
+  #include "diagnostic_array_bounds_push.h"
+#endif
+    iterator emplace(const_iterator position, value_type value)
+    {
+      ETL_ASSERT(size() != CAPACITY, ETL_ERROR(vector_full));
+
+      iterator position_ = to_iterator(position);
+
+      if (position_ != end())
+      {
+        ++p_end;
+        etl::copy_backward(position_, end() - 1, end());
+        *position_ = value;
       }
       else
       {
         *p_end++ = value;
       }
 
-      return position;
+      return position_;
     }
+#if defined(ETL_COMPILER_GCC) && defined(ETL_IN_UNIT_TEST)
+  #include "diagnostic_pop.h"
+#endif
 
     //*********************************************************************
     /// Inserts 'n' values to the vector.
@@ -489,15 +533,23 @@ namespace etl
     ///\param n        The number of elements to add.
     ///\param value    The value to insert.
     //*********************************************************************
-    void insert(iterator position, size_t n, value_type value)
+#if defined(ETL_COMPILER_GCC) && defined(ETL_IN_UNIT_TEST)
+  #include "diagnostic_array_bounds_push.h"
+#endif
+    void insert(const_iterator position, size_t n, value_type value)
     {
-      ETL_ASSERT((size() + n) <= CAPACITY, ETL_ERROR(vector_full));
+      ETL_ASSERT_OR_RETURN((size() + n) <= CAPACITY, ETL_ERROR(vector_full));
 
-      etl::copy_backward(position, p_end, p_end + n);
-      etl::fill_n(position, n, value);
+      iterator position_ = to_iterator(position);
+
+      etl::copy_backward(position_, p_end, p_end + n);
+      etl::fill_n(position_, n, value);
 
       p_end += n;
     }
+#if defined(ETL_COMPILER_GCC) && defined(ETL_IN_UNIT_TEST)
+  #include "diagnostic_pop.h"
+#endif
 
     //*********************************************************************
     /// Inserts a range of values to the vector.
@@ -508,14 +560,16 @@ namespace etl
     ///\param last     The last + 1 element to add.
     //*********************************************************************
     template <typename TIterator>
-    void insert(iterator position, TIterator first, TIterator last)
+    void insert(const_iterator position, TIterator first, TIterator last)
     {
       size_t count = etl::distance(first, last);
 
-      ETL_ASSERT((size() + count) <= CAPACITY, ETL_ERROR(vector_full));
+      iterator position_ = to_iterator(position);
 
-      etl::copy_backward(position, p_end, p_end + count);
-      etl::copy(first, last, position);
+      ETL_ASSERT_OR_RETURN((size() + count) <= CAPACITY, ETL_ERROR(vector_full));
+
+      etl::copy_backward(position_, p_end, p_end + count);
+      etl::copy(first, last, position_);
       p_end += count;
     }
 
@@ -533,6 +587,21 @@ namespace etl
     }
 
     //*********************************************************************
+    /// Erases an element.
+    ///\param i_element Iterator to the element.
+    ///\return An iterator pointing to the element that followed the erased element.
+    //*********************************************************************
+    iterator erase(const_iterator i_element)
+    {
+      iterator i_element_ = to_iterator(i_element);
+
+      etl::copy(i_element_ + 1, end(), i_element_);
+      --p_end;
+
+      return i_element_;
+    }
+
+    //*********************************************************************
     /// Erases a range of elements.
     /// The range includes all the elements between first and last, including the
     /// element pointed by first, but not the one pointed by last.
@@ -540,15 +609,18 @@ namespace etl
     ///\param last  Iterator to the last element.
     ///\return An iterator pointing to the element that followed the erased element.
     //*********************************************************************
-    iterator erase(iterator first, iterator last)
+    iterator erase(const_iterator first, const_iterator last)
     {
-      etl::copy(last, end(), first);
+      iterator first_ = to_iterator(first);
+      iterator last_  = to_iterator(last);
+
+      etl::copy(last_, end(), first_);
       size_t n_delete = etl::distance(first, last);
 
       // Just adjust the count.
       p_end -= n_delete;
 
-      return first;
+      return first_;
     }
 
     //*************************************************************************
@@ -566,7 +638,7 @@ namespace etl
       return *this;
     }
 
-#if ETL_CPP11_SUPPORTED
+#if ETL_USING_CPP11
     //*************************************************************************
     /// Move assignment operator.
     //*************************************************************************
@@ -655,6 +727,14 @@ namespace etl
     void** p_end;
 
   private:
+
+    //*************************************************************************
+    /// Convert from const_iterator to iterator
+    //*************************************************************************
+    iterator to_iterator(const_iterator itr) const
+    {
+      return const_cast<iterator>(itr);
+    }
 
     // Disable copy construction.
     pvoidvector(const pvoidvector&);

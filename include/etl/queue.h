@@ -7,7 +7,7 @@ Embedded Template Library.
 https://github.com/ETLCPP/etl
 https://www.etlcpp.com
 
-Copyright(c) 2014 jwellbelove, Mark Kitson
+Copyright(c) 2014 John Wellbelove, Mark Kitson
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files(the "Software"), to deal
@@ -31,11 +31,8 @@ SOFTWARE.
 #ifndef ETL_QUEUE_INCLUDED
 #define ETL_QUEUE_INCLUDED
 
-#include <stddef.h>
-#include <stdint.h>
-
 #include "platform.h"
-#include "container.h"
+#include "iterator.h"
 #include "alignment.h"
 #include "array.h"
 #include "exception.h"
@@ -47,6 +44,9 @@ SOFTWARE.
 #include "integral_limits.h"
 #include "utility.h"
 #include "placement_new.h"
+
+#include <stddef.h>
+#include <stdint.h>
 
 //*****************************************************************************
 ///\defgroup queue queue
@@ -103,7 +103,7 @@ namespace etl
   /// The base class for all queues.
   ///\ingroup queue
   //***************************************************************************
-  template <const size_t MEMORY_MODEL = etl::memory_model::MEMORY_MODEL_LARGE>
+  template <size_t MEMORY_MODEL = etl::memory_model::MEMORY_MODEL_LARGE>
   class queue_base
   {
   public:
@@ -187,26 +187,26 @@ namespace etl
     //*************************************************************************
     void add_in()
     {
-      if (++in == CAPACITY)
+      if (++in == CAPACITY) ETL_UNLIKELY
       {
         in = 0;
       }
 
       ++current_size;
-      ETL_INCREMENT_DEBUG_COUNT
+      ETL_INCREMENT_DEBUG_COUNT;
     }
 
     //*************************************************************************
-    /// Decrements (and wraps) the 'out' index value to record a queue deletion.
+    /// Increments (and wraps) the 'out' index value to record a queue deletion.
     //*************************************************************************
     void del_out()
     {
-      if (++out == CAPACITY)
+      if (++out == CAPACITY) ETL_UNLIKELY
       {
         out = 0;
       }
       --current_size;
-      ETL_DECREMENT_DEBUG_COUNT
+      ETL_DECREMENT_DEBUG_COUNT;
     }
 
     //*************************************************************************
@@ -217,14 +217,14 @@ namespace etl
       in = 0;
       out = 0;
       current_size = 0;
-      ETL_RESET_DEBUG_COUNT
+      ETL_RESET_DEBUG_COUNT;
     }
 
     size_type in;            ///< Where to input new data.
     size_type out;           ///< Where to get the oldest data.
     size_type current_size;   ///< The number of items in the queue.
     const size_type CAPACITY; ///< The maximum number of items in the queue.
-    ETL_DECLARE_DEBUG_COUNT  ///< For internal debugging purposes.
+    ETL_DECLARE_DEBUG_COUNT;  ///< For internal debugging purposes.
 
   };
 
@@ -251,7 +251,7 @@ namespace etl
     typedef T                          value_type;      ///< The type stored in the queue.
     typedef T&                         reference;       ///< A reference to the type used in the queue.
     typedef const T&                   const_reference; ///< A const reference to the type used in the queue.
-#if ETL_CPP11_SUPPORTED
+#if ETL_USING_CPP11
     typedef T&&                        rvalue_reference;///< An rvalue reference to the type used in the queue.
 #endif
     typedef T*                         pointer;         ///< A pointer to the type used in the queue.
@@ -317,7 +317,7 @@ namespace etl
       add_in();
     }
 
-#if ETL_CPP11_SUPPORTED
+#if ETL_USING_CPP11
     //*************************************************************************
     /// Adds a value to the queue.
     /// If asserts or exceptions are enabled, throws an etl::queue_full if the queue if already full.
@@ -333,7 +333,7 @@ namespace etl
     }
 #endif
 
-#if ETL_CPP11_SUPPORTED && ETL_NOT_USING_STLPORT && !defined(ETL_QUEUE_FORCE_CPP03)
+#if ETL_USING_CPP11 && ETL_NOT_USING_STLPORT && !defined(ETL_QUEUE_FORCE_CPP03_IMPLEMENTATION)
     //*************************************************************************
     /// Constructs a value in the queue 'in place'.
     /// If asserts or exceptions are enabled, throws an etl::queue_full if the queue if already full.
@@ -349,6 +349,20 @@ namespace etl
       add_in();
     }
 #else
+    //*************************************************************************
+    /// Constructs a value in the queue 'in place'.
+    /// If asserts or exceptions are enabled, throws an etl::queue_full if the queue if already full.
+    ///\param value The value to use to construct the item to push to the queue.
+    //*************************************************************************
+    void emplace()
+    {
+#if defined(ETL_CHECK_PUSH_POP)
+      ETL_ASSERT(!full(), ETL_ERROR(queue_full));
+#endif
+      ::new (&p_buffer[in]) T();
+      add_in();
+    }
+
     //*************************************************************************
     /// Constructs a value in the queue 'in place'.
     /// If asserts or exceptions are enabled, throws an etl::queue_full if the queue if already full.
@@ -483,7 +497,7 @@ namespace etl
       return *this;
     }
 
-#if ETL_CPP11_SUPPORTED
+#if ETL_USING_CPP11
     //*************************************************************************
     /// Assignment operator.
     //*************************************************************************
@@ -517,7 +531,7 @@ namespace etl
       }
     }
 
-#if ETL_CPP11_SUPPORTED
+#if ETL_USING_CPP11
     //*************************************************************************
     /// Make this a moved clone of the supplied queue
     //*************************************************************************
@@ -608,7 +622,7 @@ namespace etl
       base_t::clone(rhs);
     }
 
-#if ETL_CPP11_SUPPORTED
+#if ETL_USING_CPP11
     //*************************************************************************
     /// Copy constructor
     //*************************************************************************
@@ -640,7 +654,7 @@ namespace etl
       return *this;
     }
 
-#if ETL_CPP11_SUPPORTED
+#if ETL_USING_CPP11
     //*************************************************************************
     /// Move assignment operator.
     //*************************************************************************
@@ -648,7 +662,7 @@ namespace etl
     {
       if (&rhs != this)
       {
-        base_t::move_clone(rhs);
+        base_t::move_clone(etl::move(rhs));
       }
 
       return *this;
@@ -660,6 +674,9 @@ namespace etl
     /// The uninitialised buffer of T used in the queue.
     container_type buffer[SIZE];
   };
+
+  template <typename T, const size_t SIZE, const size_t MEMORY_MODEL>
+  ETL_CONSTANT typename queue<T, SIZE, MEMORY_MODEL>::size_type queue<T, SIZE, MEMORY_MODEL>::MAX_SIZE;
 }
 
 #endif

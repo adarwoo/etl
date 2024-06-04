@@ -5,7 +5,7 @@ Embedded Template Library.
 https://github.com/ETLCPP/etl
 https://www.etlcpp.com
 
-Copyright(c) 2014 jwellbelove
+Copyright(c) 2014 John Wellbelove
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files(the "Software"), to deal
@@ -94,7 +94,7 @@ namespace
       CHECK(data.begin() == data.end());
     }
 
-#if ETL_USING_STL && !defined(ETL_TEMPLATE_DEDUCTION_GUIDE_TESTS_DISABLED)
+#if ETL_USING_CPP17 && ETL_HAS_INITIALIZER_LIST && !defined(ETL_TEMPLATE_DEDUCTION_GUIDE_TESTS_DISABLED)
     //*************************************************************************
     TEST(test_cpp17_deduced_constructor)
     {
@@ -157,7 +157,7 @@ namespace
       CHECK(are_equal);
     }
 
-#if ETL_USING_STL
+#if ETL_HAS_INITIALIZER_LIST
     //*************************************************************************
     TEST_FIXTURE(SetupFixture, test_constructor_initializer_list)
     {
@@ -241,6 +241,7 @@ namespace
       data1.push_front(std::move(p4));
 
       DataM data2;
+      data2.push_front(ItemM(5U));
       data2 = std::move(data1);
 
       CHECK_EQUAL(0U, data1.size());
@@ -269,6 +270,7 @@ namespace
       data1.push_front(std::move(p4));
 
       DataM data2;
+      data2.push_front(ItemM(5U));
 
       IDataM& idata1 = data1;
       IDataM& idata2 = data2;
@@ -423,7 +425,7 @@ namespace
       data.assign(sorted_data.begin(), sorted_data.end());
       CHECK_EQUAL(SIZE, data.size());
       data.clear();
-      CHECK_EQUAL(size_t(0UL), data.size());
+      CHECK_EQUAL(0UL, data.size());
     }
 
     //*************************************************************************
@@ -438,7 +440,7 @@ namespace
       data.resize(SIZE);
       CHECK_EQUAL(SIZE, data.size());
       data.clear();
-      CHECK_EQUAL(size_t(0UL), data.size());
+      CHECK_EQUAL(0UL, data.size());
     }
 
     //*************************************************************************
@@ -692,6 +694,16 @@ namespace
 
       are_equal = std::equal(data.begin(), data.end(), compare_data.begin());
       CHECK(are_equal);
+    }
+
+    //*************************************************************************
+    TEST_FIXTURE(SetupFixture, test_emplace_front_return)
+    {
+      DataNDC data;
+
+      data.emplace_front("24");
+      auto& front = data.emplace_front("42");
+      CHECK_EQUAL(front, data.front());
     }
 
     //*************************************************************************
@@ -969,7 +981,9 @@ namespace
       DataNDC data(sorted_data.begin(), sorted_data.end());
       DataNDC other_data(data);
 
+#include "etl/private/diagnostic_self_assign_overloaded_push.h" 
       other_data = other_data;
+#include "etl/private/diagnostic_pop.h" 
 
       CHECK_EQUAL(data.size(), other_data.size());
 
@@ -986,10 +1000,13 @@ namespace
       compare_data.unique();
       data.unique();
 
-      CHECK_EQUAL(size_t(std::distance(compare_data.begin(), compare_data.end())), data.size());
+      if ((compare_data.begin() != compare_data.end()) && (data.begin() != data.end()))
+      {
+        CHECK_EQUAL(size_t(std::distance(compare_data.begin(), compare_data.end())), data.size());
 
-      are_equal = std::equal(data.begin(), data.end(), compare_data.begin());
-      CHECK(are_equal);
+        are_equal = std::equal(data.begin(), data.end(), compare_data.begin());
+        CHECK(are_equal);
+      }
     }
 
     //*************************************************************************
@@ -1349,5 +1366,59 @@ namespace
       CHECK(data1 < data3);
       CHECK(data3 > data1);
     }
+
+    //*************************************************************************
+    TEST(test_two_parameter_same_type_non_iterator)
+    {
+      // No compile error.
+      etl::forward_list<int, 10> fl(10, 1);
+      CHECK(fl.size() == 10);
+      fl.assign(5, 2);
+      CHECK(fl.size() == 5);
+      fl.insert_after(fl.before_begin(), 5, 3);
+      CHECK(fl.size() == fl.max_size());
+    }
+    
+    //*************************************************************************
+#if ETL_USING_CPP17 && ETL_HAS_INITIALIZER_LIST && !defined(ETL_TEMPLATE_DEDUCTION_GUIDE_TESTS_DISABLED)
+    TEST(test_forward_list_template_deduction)
+    {
+      etl::forward_list data{ ItemNDC("A"), ItemNDC("B"), ItemNDC("C"), ItemNDC("D"), ItemNDC("E"), ItemNDC("F") };
+
+      auto v = *data.begin();
+      using Type = decltype(v);
+      CHECK((std::is_same_v<ItemNDC, Type>));
+
+      decltype(data)::const_iterator itr = data.begin();
+
+      CHECK_EQUAL(ItemNDC("A"), *itr++);
+      CHECK_EQUAL(ItemNDC("B"), *itr++);
+      CHECK_EQUAL(ItemNDC("C"), *itr++);
+      CHECK_EQUAL(ItemNDC("D"), *itr++);
+      CHECK_EQUAL(ItemNDC("E"), *itr++);
+      CHECK_EQUAL(ItemNDC("F"), *itr++);
+    }
+#endif
+
+    //*************************************************************************
+#if ETL_HAS_INITIALIZER_LIST
+    TEST(test_make_forward_list)
+    {
+      auto data = etl::make_forward_list<ItemNDC>(ItemNDC("A"), ItemNDC("B"), ItemNDC("C"), ItemNDC("D"), ItemNDC("E"), ItemNDC("F"));
+
+      auto v = *data.begin();
+      using Type = decltype(v);
+      CHECK((std::is_same<ItemNDC, Type>::value));
+
+      decltype(data)::const_iterator itr = data.begin();
+
+      CHECK_EQUAL(ItemNDC("A"), *itr++);
+      CHECK_EQUAL(ItemNDC("B"), *itr++);
+      CHECK_EQUAL(ItemNDC("C"), *itr++);
+      CHECK_EQUAL(ItemNDC("D"), *itr++);
+      CHECK_EQUAL(ItemNDC("E"), *itr++);
+      CHECK_EQUAL(ItemNDC("F"), *itr++);
+    }
+#endif
   };
 }

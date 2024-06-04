@@ -5,7 +5,7 @@ Embedded Template Library.
 https://github.com/ETLCPP/etl
 https://www.etlcpp.com
 
-Copyright(c) 2019 jwellbelove
+Copyright(c) 2019 John Wellbelove
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files(the "Software"), to deal
@@ -30,6 +30,8 @@ SOFTWARE.
 
 #include "etl/delegate.h"
 #include "etl/delegate_service.h"
+
+#if !defined(ETL_DELEGATE_FORCE_CPP03_IMPLEMENTATION)
 
 namespace
 {
@@ -66,12 +68,12 @@ namespace
   //*****************************************************************************
   // The test class with member functions.
   //*****************************************************************************
-  class Test
+  class Object
   {
   public:
 
-    Test()
-      : callback(etl::delegate<void(size_t)>::create<Test, &Test::member1>(*this))
+    Object()
+      : callback(Service::delegate_type::create<Object, &Object::member1>(*this))
     {
     }
 
@@ -91,16 +93,16 @@ namespace
     etl::delegate<void(size_t)> callback;
   };
 
-  Test test;
+  Object object;
 
   // Callback for 'member2'.
-  constexpr etl::delegate<void(size_t)> member_callback = etl::delegate<void(size_t)>::create<Test, test, &Test::member2>();
+  ETL_CONSTEXPR14 Service::delegate_type member_callback = Service::delegate_type::create<Object, object, &Object::member2>();
 
   // Callback for 'global'.
-  constexpr etl::delegate<void(size_t)> global_callback = etl::delegate<void(size_t)>::create<global>();
+  ETL_CONSTEXPR14 Service::delegate_type global_callback = Service::delegate_type::create<global>();
 
   // Callback for 'unhandled'.
-  constexpr etl::delegate<void(size_t)> unhandled_callback = etl::delegate<void(size_t)>::create<unhandled>();
+  ETL_CONSTEXPR14 Service::delegate_type unhandled_callback = Service::delegate_type::create<unhandled>();
 
   //*****************************************************************************
   // Initialises the test results.
@@ -136,7 +138,7 @@ namespace
       Service service;
 
       service.register_delegate<Global>(global_callback);
-      service.register_delegate<Member1>(test.callback);
+      service.register_delegate<Member1>(object.callback);
       service.register_delegate<Member2>(member_callback);
 
       service.call<Global>();
@@ -154,7 +156,7 @@ namespace
       Service service;
 
       service.register_delegate(Global,  global_callback);
-      service.register_delegate(Member1, test.callback);
+      service.register_delegate(Member1, object.callback);
       service.register_delegate(Member2, member_callback);
 
       service.call(Global);
@@ -172,7 +174,7 @@ namespace
       Service service;
 
       service.register_delegate<Global>(global_callback);
-      service.register_delegate<Member1>(test.callback);
+      service.register_delegate<Member1>(object.callback);
       service.register_delegate<Member2>(member_callback);
 
       service.call<Member1>();
@@ -190,7 +192,7 @@ namespace
       Service service;
 
       service.register_delegate(Global,  global_callback);
-      service.register_delegate(Member1, test.callback);
+      service.register_delegate(Member1, object.callback);
       service.register_delegate(Member2, member_callback);
 
       service.call(Member1);
@@ -208,7 +210,7 @@ namespace
       Service service;
 
       service.register_delegate<Global>(global_callback);
-      service.register_delegate<Member1>(test.callback);
+      service.register_delegate<Member1>(object.callback);
       service.register_delegate<Member2>(member_callback);
 
       service.call<Member2>();
@@ -226,7 +228,7 @@ namespace
       Service service;
 
       service.register_delegate<Global>(global_callback);
-      service.register_delegate<Member1>(test.callback);
+      service.register_delegate<Member1>(object.callback);
       service.register_delegate<Member2>(member_callback);
 
       service.call(Out_Of_Range);
@@ -244,7 +246,7 @@ namespace
       Service service;
 
       service.register_delegate<Global>(global_callback);
-      service.register_delegate<Member1>(test.callback);
+      service.register_delegate<Member1>(object.callback);
       service.register_delegate<Member2>(member_callback);
 
       service.register_unhandled_delegate(unhandled_callback);
@@ -331,3 +333,5 @@ namespace
     }
   };
 }
+
+#endif

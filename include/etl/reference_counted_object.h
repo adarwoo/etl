@@ -5,7 +5,7 @@
 //https://github.com/ETLCPP/etl
 //https://www.etlcpp.com
 //
-//Copyright(c) 2021 jwellbelove
+//Copyright(c) 2021 John Wellbelove
 //
 //Permission is hereby granted, free of charge, to any person obtaining a copy
 //of this software and associated documentation files(the "Software"), to deal
@@ -29,13 +29,43 @@
 #ifndef ETL_REFERENCE_COUNTED_OBJECT_INCLUDED
 #define ETL_REFERENCE_COUNTED_OBJECT_INCLUDED
 
-#include <stdint.h>
-
 #include "platform.h"
 #include "atomic.h"
+#include "exception.h"
+#include "error_handler.h"
+#include "utility.h"
+
+#include <stdint.h>
 
 namespace etl
 {
+
+  //***************************************************************************
+  /// Exceptions for reference counting
+  ///\ingroup reference_counting
+  //***************************************************************************
+  class reference_counting_exception : public etl::exception
+  {
+  public:
+    reference_counting_exception(string_type reason_, string_type file_name_, numeric_type line_number_)
+      : exception(reason_, file_name_, line_number_)
+    {
+    }
+  };
+
+  //***************************************************************************
+  /// Reference counter overrun exception
+  ///\ingroup reference_counting
+  //***************************************************************************
+  class reference_count_overrun : public etl::reference_counting_exception
+  {
+  public:
+    reference_count_overrun(string_type file_name_, numeric_type line_number_)
+      : etl::reference_counting_exception(ETL_ERROR_TEXT("reference_counting:overrun", ETL_REFERENCE_COUNTED_OBJECT_FILE_ID"A"), file_name_, line_number_)
+    {
+    }
+  };
+
   //***************************************************************************
   /// The base of all reference counters.
   //***************************************************************************
@@ -87,7 +117,7 @@ namespace etl
     //***************************************************************************
     ETL_NODISCARD virtual int32_t decrement_reference_count() ETL_OVERRIDE
     {
-      assert(reference_count > 0);
+      ETL_ASSERT(reference_count > 0, ETL_ERROR(reference_count_overrun));
 
       return int32_t(--reference_count);
     }
@@ -142,7 +172,7 @@ namespace etl
     //***************************************************************************
     ETL_NODISCARD virtual int32_t decrement_reference_count() ETL_OVERRIDE
     {
-      return int32_t(1);
+      return 1;
     }
 
     //***************************************************************************
@@ -150,7 +180,7 @@ namespace etl
     //***************************************************************************
     ETL_NODISCARD virtual int32_t get_reference_count() const ETL_OVERRIDE
     {
-      return int32_t(1);
+      return 1;
     }
   };
 
@@ -193,6 +223,17 @@ namespace etl
       : object(object_)
     {
     }
+
+#if ETL_USING_CPP11
+    //***************************************************************************
+    /// Constructor.
+    //***************************************************************************
+    template <typename... TArgs>
+    reference_counted_object(TArgs&&... args)
+      : object(etl::forward<TArgs>(args)...)
+    {
+    }
+#endif
 
     //***************************************************************************
     /// Get a reference to the counted object.
@@ -237,7 +278,7 @@ namespace etl
     etl::reference_counter<TCounter> reference_counter; ///< The reference counter.
   };
 
-#if ETL_CPP11_SUPPORTED && ETL_HAS_ATOMIC
+#if ETL_USING_CPP11 && ETL_HAS_ATOMIC
   //***************************************************************************
   /// Class for creating reference counted objects using an atomic counter.
   /// \tparam TObject  The type to be reference counted.

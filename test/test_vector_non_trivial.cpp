@@ -5,7 +5,7 @@
 //https://github.com/ETLCPP/etl
 //https://www.etlcpp.com
 //
-//Copyright(c) 2014 jwellbelove
+//Copyright(c) 2014 John Wellbelove
 //
 //Permission is hereby granted, free of charge, to any person obtaining a copy
 //of this software and associated documentation files(the "Software"), to deal
@@ -34,6 +34,7 @@
 #include <memory>
 
 #include "etl/vector.h"
+#include "etl/math.h"
 #include "data.h"
 
 namespace
@@ -92,7 +93,7 @@ namespace
       CHECK_EQUAL(data.max_size(), SIZE);
     }
 
-#if ETL_USING_STL && !defined(ETL_TEMPLATE_DEDUCTION_GUIDE_TESTS_DISABLED)
+#if ETL_USING_CPP17 && ETL_HAS_INITIALIZER_LIST && !defined(ETL_TEMPLATE_DEDUCTION_GUIDE_TESTS_DISABLED)
     //*************************************************************************
     TEST(test_cpp17_deduced_constructor)
     {
@@ -186,7 +187,7 @@ namespace
       CHECK(!data.empty());
     }
 
-#if ETL_USING_STL
+#if ETL_HAS_INITIALIZER_LIST
     //*************************************************************************
     TEST(test_constructor_initializer_list)
     {
@@ -212,7 +213,6 @@ namespace
     //*************************************************************************
     TEST(test_move_constructor)
     {
-      const size_t SIZE = 10U;
       typedef etl::vector<std::unique_ptr<uint32_t>, SIZE> Data;
 
       std::unique_ptr<uint32_t> p1(new uint32_t(1U));
@@ -255,7 +255,6 @@ namespace
     //*************************************************************************
     TEST(test_move_assignment)
     {
-      const size_t SIZE = 10U;
       typedef etl::vector<std::unique_ptr<uint32_t>, SIZE> Data;
 
       std::unique_ptr<uint32_t> p1(new uint32_t(1U));
@@ -302,7 +301,6 @@ namespace
     //*************************************************************************
     TEST(test_move_assignment_interface)
     {
-      const size_t SIZE = 10U;
       typedef etl::vector<std::unique_ptr<uint32_t>, SIZE> Data;
       typedef etl::ivector<std::unique_ptr<uint32_t>> IData;
 
@@ -339,7 +337,9 @@ namespace
       DataNDC data(initial_data.begin(), initial_data.end());
       DataNDC other_data(data);
 
+#include "etl/private/diagnostic_self_assign_overloaded_push.h" 
       other_data = other_data;
+#include "etl/private/diagnostic_pop.h" 
 
       bool is_equal = std::equal(data.begin(),
                                  data.end(),
@@ -661,29 +661,6 @@ namespace
     }
 
     //*************************************************************************
-    TEST_FIXTURE(SetupFixture, test_emplace_back)
-    {
-      CompareDataNDC compare_data;
-      DataNDC data;
-
-      for (size_t i = 0UL; i < SIZE; ++i)
-      {
-        std::string value(" ");
-        value[0] = char('A' + i);
-        compare_data.emplace_back(value, i);
-        data.emplace_back(value, i);
-      }
-
-      CHECK_EQUAL(compare_data.size(), data.size());
-
-      bool is_equal = std::equal(data.begin(),
-                                 data.end(),
-                                 compare_data.begin());
-
-      CHECK(is_equal);
-    }
-
-    //*************************************************************************
     TEST_FIXTURE(SetupFixture, test_push_back_unique_ptr)
     {
       etl::vector<std::unique_ptr<int>, SIZE> data;
@@ -707,6 +684,39 @@ namespace
       CHECK_EQUAL(2, *data[1]);
       CHECK_EQUAL(3, *data[2]);
       CHECK_EQUAL(4, *data[3]);
+    }
+
+    //*************************************************************************
+    TEST_FIXTURE(SetupFixture, test_emplace_back)
+    {
+      CompareDataNDC compare_data;
+      DataNDC data;
+
+      for (size_t i = 0UL; i < SIZE; ++i)
+      {
+        std::string value(" ");
+        value[0] = char('A' + i);
+        compare_data.emplace_back(value, i);
+        data.emplace_back(value, i);
+      }
+
+      CHECK_EQUAL(compare_data.size(), data.size());
+
+      bool is_equal = std::equal(data.begin(),
+        data.end(),
+        compare_data.begin());
+
+      CHECK(is_equal);
+    }
+
+    //*************************************************************************
+    TEST_FIXTURE(SetupFixture, test_emplace_back_return)
+    {
+      DataNDC data;
+
+      data.emplace_back("A", 24);
+      auto back = data.emplace_back("B", 42);
+      CHECK_EQUAL(back, data.back());
     }
 
     //*************************************************************************
@@ -759,7 +769,6 @@ namespace
 #endif
 
     //*************************************************************************
-    // To test the CPP03 versions then ETL_TEST_VECTOR_CPP11 must be set to 0 in vector.h
     TEST_FIXTURE(SetupFixture, test_emplace_back_multiple)
     {
       class Data
@@ -775,10 +784,12 @@ namespace
         Data(std::string w, size_t x, double y, const char *z) : a(w), b(x), c(y), d(z){}
         bool operator == (const Data &other) const
         {
+#include "etl/private/diagnostic_float_equal_push.h"
           return (a == other.a) &&
                  (b == other.b) &&
                  (c == other.c) &&
                  (((d == nullptr) && (other.d == nullptr)) || (strcmp(d, other.d) == 0));
+#include "etl/private/diagnostic_pop.h"
         }
       };
 
@@ -824,7 +835,7 @@ namespace
     // So this is only tested on C++11 onwards
     TEST_FIXTURE(SetupFixture, test_emplace_back_non_const_references)
     {
-#if ETL_CPP11_SUPPORTED && ETL_NOT_USING_STLPORT && !defined(ETL_VECTOR_FORCE_CPP03)
+#if ETL_USING_CPP11 && ETL_NOT_USING_STLPORT && !defined(ETL_VECTOR_FORCE_CPP03_IMPLEMENTATION)
       class Data
       {
       public:
@@ -835,7 +846,7 @@ namespace
         Data(std::string &w, size_t &x, double &y, const char *z) : a(w), b(x), c(y), d(z){}
         bool operator == (const Data &other) const
         {
-          return (a == other.a) && (b == other.b) && (c == other.c) && (d == other.d);
+          return (a == other.a) && (b == other.b) && !(c < other.c) && !(c > other.c) && (d == other.d);
         }
       };
 
@@ -951,6 +962,7 @@ namespace
     }
 
     //*************************************************************************
+#include "etl/private/diagnostic_array_bounds_push.h"
     TEST_FIXTURE(SetupFixture, test_insert_position_value_excess)
     {
       const size_t INITIAL_SIZE     = SIZE;
@@ -971,6 +983,7 @@ namespace
 
       CHECK_THROW(data.insert(data.begin() + offset, INITIAL_VALUE), etl::vector_full);
     }
+#include "etl/private/diagnostic_pop.h"
 
     //*************************************************************************
     TEST_FIXTURE(SetupFixture, test_insert_position_n_value)

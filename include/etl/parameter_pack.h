@@ -5,7 +5,7 @@ Embedded Template Library.
 https://github.com/ETLCPP/etl
 https://www.etlcpp.com
 
-Copyright(c) 2017 jwellbelove
+Copyright(c) 2017 John Wellbelove
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files(the "Software"), to deal
@@ -29,10 +29,10 @@ SOFTWARE.
 #ifndef ETL_PARAMETER_PACK
 #define ETL_PARAMETER_PACK
 
-#include <stdint.h>
-
 #include "platform.h"
 #include "type_traits.h"
+
+#include <stdint.h>
 
 #if ETL_CPP11_NOT_SUPPORTED
   #if !defined(ETL_IN_UNIT_TEST)
@@ -81,7 +81,7 @@ namespace etl
       static constexpr size_t value = index_of_type_helper<T, TTypes...>::value - 1;
     };
 
-#if ETL_CPP17_SUPPORTED
+#if ETL_USING_CPP17
     template <typename T>
     static constexpr size_t index_of_type_v = index_of_type<T>::value;
 #endif
@@ -121,12 +121,29 @@ namespace etl
     using type_from_index_t = typename type_from_index<I>::type;
   };
 
+  //***********************************
   template <size_t Index, typename... TTypes>
   using parameter_pack_t = typename etl::parameter_pack<TTypes...>::template type_from_index_t<Index>;
 
-#if ETL_CPP17_SUPPORTED
+  //***********************************
+  template <typename... TTypes>
+  constexpr size_t parameter_pack<TTypes...>::size;
+
+#if ETL_USING_CPP17
   template <typename T, typename... TTypes>
   inline constexpr size_t parameter_pack_v = etl::parameter_pack<TTypes...>::template index_of_type<T>::value;
+#endif
+
+#if ETL_USING_CPP17 && (!ETL_USING_GCC_COMPILER || (__GNUC__ > 7))
+  //***********************************
+  template <typename... TTypes>
+  template <typename T>
+  constexpr size_t parameter_pack<TTypes...>::template index_of_type<T>::value;
+#else
+  //***********************************
+  template <typename... TTypes>
+  template <typename T>
+  constexpr size_t parameter_pack<TTypes...>::index_of_type<T>::value;
 #endif
 }
 #endif

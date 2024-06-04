@@ -5,7 +5,7 @@ Embedded Template Library.
 https://github.com/ETLCPP/etl
 https://www.etlcpp.com
 
-Copyright(c) 2019 jwellbelove
+Copyright(c) 2019 John Wellbelove
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files(the "Software"), to deal
@@ -32,6 +32,7 @@ SOFTWARE.
 #include <array>
 #include <algorithm>
 #include <cstring>
+#include <numeric>
 
 #include "etl/vector.h"
 
@@ -45,7 +46,7 @@ namespace
   int buffer4[SIZE];
   int buffer5[SIZE];
 
-  SUITE(test_vector)
+  SUITE(test_vector_external_buffer)
   {
     typedef etl::vector_ext<int> Data;
     typedef etl::ivector<int>    IData;
@@ -154,7 +155,7 @@ namespace
       CHECK(!data.empty());
     }
 
-#if ETL_USING_STL
+#if ETL_HAS_INITIALIZER_LIST
     //*************************************************************************
     TEST(test_constructor_initializer_list)
     {
@@ -240,7 +241,9 @@ namespace
       Data data(initial_data.begin(), initial_data.end(), buffer1, SIZE);
       Data other_data(data, buffer1, SIZE);
 
+#include "etl/private/diagnostic_self_assign_overloaded_push.h" 
       other_data = other_data;
+#include "etl/private/diagnostic_pop.h" 
 
       bool is_equal = std::equal(data.begin(),
                                  data.end(),
@@ -410,6 +413,26 @@ namespace
     }
 
     //*************************************************************************
+    TEST_FIXTURE(SetupFixture, test_uninitialized_resize_after_contruct)
+    {
+      int c_buffer[SIZE];
+      std::iota(c_buffer, c_buffer + SIZE, 1);
+
+      int compare_buffer[SIZE];
+      std::iota(compare_buffer, compare_buffer + SIZE, 1);
+
+      Data data(c_buffer, SIZE);
+      data.uninitialized_resize(SIZE);
+
+      CHECK_EQUAL(SIZE, data.size());
+
+      for (size_t i = 0UL; i < data.size(); ++i)
+      {
+        CHECK_EQUAL(data[i], compare_buffer[i]);
+      }
+    }
+
+    //*************************************************************************
     TEST_FIXTURE(SetupFixture, test_empty)
     {
       Data data(buffer1, SIZE);
@@ -488,7 +511,7 @@ namespace
       Compare_Data compare_data(initial_data.begin(), initial_data.end());
       Data data(initial_data.begin(), initial_data.end(), buffer1, SIZE);
 
-      CHECK(data.front() == compare_data.front());
+      CHECK_EQUAL(compare_data.front(), data.front());
     }
 
     //*************************************************************************
@@ -497,7 +520,7 @@ namespace
       const Compare_Data compare_data(initial_data.begin(), initial_data.end());
       const Data data(initial_data.begin(), initial_data.end(), buffer1, SIZE);
 
-      CHECK(data.front() == compare_data.front());
+      CHECK_EQUAL(compare_data.front(), data.front());
     }
 
     //*************************************************************************
@@ -506,7 +529,7 @@ namespace
       Compare_Data compare_data(initial_data.begin(), initial_data.end());
       Data data(initial_data.begin(), initial_data.end(), buffer1, SIZE);
 
-      CHECK(data.back() == compare_data.back());
+      CHECK_EQUAL(compare_data.back(), data.back());
     }
 
     //*************************************************************************
@@ -515,7 +538,7 @@ namespace
       const Compare_Data compare_data(initial_data.begin(), initial_data.end());
       const Data data(initial_data.begin(), initial_data.end(), buffer1, SIZE);
 
-      CHECK(data.back() == compare_data.back());
+      CHECK_EQUAL(compare_data.back(), data.back());
     }
 
 
@@ -527,8 +550,8 @@ namespace
       Data data(compare_data.begin(), compare_data.end(), buffer1, SIZE);
 
       bool is_equal = std::equal(data.data(),
-        data.data() + data.size(),
-        compare_data.begin());
+                                 data.data() + data.size(),
+                                 compare_data.begin());
 
       CHECK(is_equal);
     }
@@ -541,8 +564,8 @@ namespace
       const Data data(compare_data.begin(), compare_data.end(), buffer1, SIZE);
 
       bool is_equal = std::equal(data.data(),
-                                data.data() + data.size(),
-                                compare_data.begin());
+                                 data.data() + data.size(),
+                                 compare_data.begin());
 
       CHECK(is_equal);
     }
@@ -663,6 +686,41 @@ namespace
     }
 
     //*************************************************************************
+    TEST_FIXTURE(SetupFixture, test_emplace_back)
+    {
+      Compare_Data compare_data;
+      Data data(buffer1, SIZE);
+
+      for (int i = 0; i < int(SIZE); ++i)
+      {
+        compare_data.emplace_back(i);
+      }
+
+      for (int i = 0; i < int(SIZE); ++i)
+      {
+        data.emplace_back(i);
+      }
+
+      CHECK_EQUAL(compare_data.size(), data.size());
+
+      bool is_equal = std::equal(data.begin(),
+        data.end(),
+        compare_data.begin());
+
+      CHECK(is_equal);
+    }
+
+    //*************************************************************************
+    TEST_FIXTURE(SetupFixture, test_emplace_back_return)
+    {
+      Data data(buffer1, SIZE);
+
+      data.emplace_back(24);
+      auto back = data.emplace_back(42);
+      CHECK_EQUAL(back, data.back());
+    }
+
+    //*************************************************************************
     TEST_FIXTURE(SetupFixture, test_pop_back)
     {
       Compare_Data compare_data(initial_data.begin(), initial_data.end());
@@ -724,6 +782,7 @@ namespace
     }
 
     //*************************************************************************
+#include "etl/private/diagnostic_array_bounds_push.h"
     TEST_FIXTURE(SetupFixture, test_insert_position_value_excess)
     {
       const size_t INITIAL_SIZE     = SIZE;
@@ -743,6 +802,7 @@ namespace
 
       CHECK_THROW(data.insert(data.begin() + offset, INITIAL_VALUE), etl::vector_full);
     }
+#include "etl/private/diagnostic_pop.h"
 
     //*************************************************************************
     TEST_FIXTURE(SetupFixture, test_insert_position_n_value)
@@ -1139,7 +1199,7 @@ namespace
 
         }
 
-        S(int i): i(i){}
+        S(int i_): i(i_){}
 
         int i;
       };
@@ -1149,7 +1209,7 @@ namespace
 
       const S raw[6] = { 1, 2, 3, 4, 5, 6 };
 
-      etl::vector_ext<S> dest(etl::begin(raw), etl::end(raw), sbuffer1, SIZE);
+      etl::vector_ext<S> dest(std::begin(raw), std::end(raw), sbuffer1, SIZE);
       etl::vector_ext<S> src((size_t) 2, S(8), sbuffer2, SIZE);
 
       dest.insert(dest.begin(), src.begin(), src.end());
@@ -1175,7 +1235,7 @@ namespace
 
         }
 
-        S(int i): i(i){}
+        S(int i_): i(i_){}
 
         int i;
       };
@@ -1184,7 +1244,7 @@ namespace
 
       const S raw[6] = { 1, 2, 3, 4, 5, 6 };
 
-      etl::vector_ext<S> dest(etl::begin(raw), etl::end(raw), sbuffer1, SIZE);
+      etl::vector_ext<S> dest(ETL_OR_STD11::begin(raw), ETL_OR_STD11::end(raw), sbuffer1, SIZE);
 
       dest.insert(dest.begin(), 2, S(8));
 

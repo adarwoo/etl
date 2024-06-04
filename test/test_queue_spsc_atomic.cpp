@@ -5,7 +5,7 @@ Embedded Template Library.
 https://github.com/ETLCPP/etl
 https://www.etlcpp.com
 
-Copyright(c) 2018 jwellbelove
+Copyright(c) 2018 John Wellbelove
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files(the "Software"), to deal
@@ -150,7 +150,7 @@ namespace
       CHECK(!queue.pop(i));
     }
 
-#if !defined(ETL_FORCE_TEST_CPP03)
+#if !defined(ETL_FORCE_TEST_CPP03_IMPLEMENTATION)
     //*************************************************************************
     TEST(test_move_push_pop)
     {
@@ -272,19 +272,60 @@ namespace
     }
 
     //*************************************************************************
+    TEST(test_size_push_front_pop)
+    {
+      etl::queue_spsc_atomic<int, 4> queue;
+
+      CHECK_EQUAL(0U, queue.size());
+
+      queue.push(1);
+      queue.push(2);
+      queue.push(3);
+      queue.push(4);
+      CHECK_EQUAL(4U, queue.size());
+
+      CHECK_EQUAL(1, queue.front());
+      CHECK_EQUAL(4U, queue.size());
+
+      CHECK_EQUAL(1, queue.front());
+      CHECK_EQUAL(4U, queue.size());
+
+      CHECK(queue.pop());
+      CHECK_EQUAL(3U, queue.size());
+
+      CHECK(queue.pop());
+      CHECK_EQUAL(2U, queue.size());
+
+      CHECK(queue.pop());
+      CHECK_EQUAL(1U, queue.size());
+
+      CHECK_EQUAL(4, queue.front());
+      CHECK_EQUAL(1U, queue.size());
+
+      CHECK_EQUAL(4, queue.front());
+      CHECK_EQUAL(1U, queue.size());
+
+      CHECK(queue.pop());
+      CHECK_EQUAL(0U, queue.size());
+    }
+
+    //*************************************************************************
     TEST(test_multiple_emplace)
     {
-      etl::queue_spsc_atomic<Data, 4> queue;
+      etl::queue_spsc_atomic<Data, 5> queue;
 
+      queue.emplace();
       queue.emplace(1);
       queue.emplace(1, 2);
       queue.emplace(1, 2, 3);
       queue.emplace(1, 2, 3, 4);
 
-      CHECK_EQUAL(4U, queue.size());
+      CHECK_EQUAL(5U, queue.size());
 
       Data popped;
 
+      queue.pop(popped);
+      CHECK(popped == Data(0, 0, 0, 0));
       queue.pop(popped);
       CHECK(popped == Data(1, 2, 3, 4));
       queue.pop(popped);

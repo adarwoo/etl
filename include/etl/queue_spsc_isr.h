@@ -7,7 +7,7 @@ Embedded Template Library.
 https://github.com/ETLCPP/etl
 https://www.etlcpp.com
 
-Copyright(c) 2018 jwellbelove
+Copyright(c) 2018 John Wellbelove
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files(the "Software"), to deal
@@ -31,9 +31,6 @@ SOFTWARE.
 #ifndef ETL_SPSC_QUEUE_ISR_INCLUDED
 #define ETL_SPSC_QUEUE_ISR_INCLUDED
 
-#include <stddef.h>
-#include <stdint.h>
-
 #include "platform.h"
 #include "alignment.h"
 #include "parameter_type.h"
@@ -41,6 +38,9 @@ SOFTWARE.
 #include "integral_limits.h"
 #include "utility.h"
 #include "placement_new.h"
+
+#include <stddef.h>
+#include <stdint.h>
 
 namespace etl
 {
@@ -55,7 +55,7 @@ namespace etl
     typedef T        value_type;      ///< The type stored in the queue.
     typedef T&       reference;       ///< A reference to the type used in the queue.
     typedef const T& const_reference; ///< A const reference to the type used in the queue.
-#if ETL_CPP11_SUPPORTED
+#if ETL_USING_CPP11
     typedef T&&      rvalue_reference;///< An rvalue reference to the type used in the queue.
 #endif
 
@@ -67,7 +67,7 @@ namespace etl
       return push_implementation(value);
     }
 
-#if ETL_CPP11_SUPPORTED
+#if ETL_USING_CPP11
     //*************************************************************************
     /// Push a value to the queue from an ISR.
     //*************************************************************************
@@ -82,7 +82,7 @@ namespace etl
     /// If asserts or exceptions are enabled, throws an etl::queue_full if the queue if already full.
     ///\param value The value to use to construct the item to push to the queue.
     //*************************************************************************
-#if ETL_CPP11_SUPPORTED && ETL_NOT_USING_STLPORT && !defined(ETL_QUEUE_ISR_FORCE_CPP03)
+#if ETL_USING_CPP11 && ETL_NOT_USING_STLPORT && !defined(ETL_QUEUE_ISR_FORCE_CPP03_IMPLEMENTATION)
     template <typename ... Args>
     bool emplace_from_isr(Args&&... args)
     {
@@ -104,6 +104,22 @@ namespace etl
     bool pop_from_isr()
     {
       return pop_implementation();
+    }
+
+    //*************************************************************************
+    /// Peek a value at the front of the queue from an ISR
+    //*************************************************************************
+    reference front_from_isr()
+    {
+      return front_implementation();
+    }
+
+    //*************************************************************************
+    /// Peek a value at the front of the queue from an ISR
+    //*************************************************************************
+    const_reference front_from_isr() const
+    {
+      return front_implementation();
     }
 
     //*************************************************************************
@@ -200,7 +216,7 @@ namespace etl
       return false;
     }
 
-#if ETL_CPP11_SUPPORTED
+#if ETL_USING_CPP11
     //*************************************************************************
     /// Push a value to the queue.
     //*************************************************************************
@@ -222,7 +238,7 @@ namespace etl
     }
 #endif
 
-#if ETL_CPP11_SUPPORTED && ETL_NOT_USING_STLPORT && !defined(ETL_QUEUE_ISR_FORCE_CPP03)
+#if ETL_USING_CPP11 && ETL_NOT_USING_STLPORT && !defined(ETL_QUEUE_ISR_FORCE_CPP03_IMPLEMENTATION)
     //*************************************************************************
     /// Constructs a value in the queue 'in place'.
     /// If asserts or exceptions are enabled, throws an etl::queue_full if the queue if already full.
@@ -246,6 +262,27 @@ namespace etl
       return false;
     }
 #else
+    //*************************************************************************
+    /// Constructs a value in the queue 'in place'.
+    /// If asserts or exceptions are enabled, throws an etl::queue_full if the queue if already full.
+    //*************************************************************************
+    bool emplace_implementation()
+    {
+      if (current_size != MAX_SIZE)
+      {
+        ::new (&p_buffer[write_index]) T();
+
+        write_index = get_next_index(write_index, MAX_SIZE);
+
+        ++current_size;
+
+        return true;
+      }
+
+      // Queue is full.
+      return false;
+    }
+
     //*************************************************************************
     /// Constructs a value in the queue 'in place'.
     /// If asserts or exceptions are enabled, throws an etl::queue_full if the queue if already full.
@@ -347,7 +384,7 @@ namespace etl
         return false;
       }
 
-#if ETL_CPP11_SUPPORTED && ETL_NOT_USING_STLPORT && !defined(ETL_QUEUE_LOCKABLE_FORCE_CPP03)
+#if ETL_USING_CPP11 && ETL_NOT_USING_STLPORT && !defined(ETL_QUEUE_LOCKABLE_FORCE_CPP03_IMPLEMENTATION)
       value = etl::move(p_buffer[read_index]);
 #else
       value = p_buffer[read_index];
@@ -360,6 +397,22 @@ namespace etl
       --current_size;
 
       return true;
+    }
+
+    //*************************************************************************
+    /// Peek a value at the front of the queue.
+    //*************************************************************************
+    reference front_implementation()
+    {
+      return p_buffer[read_index];
+    }
+
+    //*************************************************************************
+    /// Peek a value at the front of the queue.
+    //*************************************************************************
+    const_reference front_implementation() const
+    {
+      return p_buffer[read_index];
     }
 
     //*************************************************************************
@@ -389,7 +442,7 @@ namespace etl
     {
       ++index;
 
-      if (index == maximum)
+      if (index == maximum) ETL_UNLIKELY
       {
         index = 0;
       }
@@ -444,7 +497,7 @@ namespace etl
     typedef typename base_t::value_type       value_type;      ///< The type stored in the queue.
     typedef typename base_t::reference        reference;       ///< A reference to the type used in the queue.
     typedef typename base_t::const_reference  const_reference; ///< A const reference to the type used in the queue.
-#if ETL_CPP11_SUPPORTED
+#if ETL_USING_CPP11
     typedef typename base_t::rvalue_reference rvalue_reference;///< A const reference to the type used in the queue.
 #endif
     typedef typename base_t::size_type        size_type;       ///< The type used for determining the size of the queue.
@@ -463,7 +516,7 @@ namespace etl
       return result;
     }
 
-#if ETL_CPP11_SUPPORTED
+#if ETL_USING_CPP11
     //*************************************************************************
     /// Push a value to the queue.
     //*************************************************************************
@@ -483,7 +536,7 @@ namespace etl
     /// Constructs a value in the queue 'in place'.
     /// If asserts or exceptions are enabled, throws an etl::queue_full if the queue if already full.
     //*************************************************************************
-#if ETL_CPP11_SUPPORTED && ETL_NOT_USING_STLPORT && !defined(ETL_QUEUE_ISR_FORCE_CPP03)
+#if ETL_USING_CPP11 && ETL_NOT_USING_STLPORT && !defined(ETL_QUEUE_ISR_FORCE_CPP03_IMPLEMENTATION)
     template <typename ... Args>
     bool emplace(Args&&... args)
     {
@@ -496,6 +549,21 @@ namespace etl
       return result;
     }
 #else
+    //*************************************************************************
+    /// Constructs a value in the queue 'in place'.
+    /// If asserts or exceptions are enabled, throws an etl::queue_full if the queue if already full.
+    //*************************************************************************
+    bool emplace()
+    {
+      TAccess::lock();
+
+      bool result = this->emplace_implementation();
+
+      TAccess::unlock();
+
+      return result;
+    }
+
     //*************************************************************************
     /// Constructs a value in the queue 'in place'.
     /// If asserts or exceptions are enabled, throws an etl::queue_full if the queue if already full.
@@ -590,6 +658,34 @@ namespace etl
     }
 
     //*************************************************************************
+    /// Peek a value at the front of the queue.
+    //*************************************************************************
+    reference front()
+    {
+      TAccess::lock();
+
+      reference result = this->front_implementation();
+
+      TAccess::unlock();
+
+      return result;
+    }
+
+    //*************************************************************************
+    /// Peek a value at the front of the queue.
+    //*************************************************************************
+    const_reference front() const
+    {
+      TAccess::lock();
+
+      const_reference result = this->front_implementation();
+
+      TAccess::unlock();
+
+      return result;
+    }
+
+    //*************************************************************************
     /// Clear the queue.
     //*************************************************************************
     void clear()
@@ -676,7 +772,7 @@ namespace etl
     iqueue_spsc_isr(const iqueue_spsc_isr&) ETL_DELETE;
     iqueue_spsc_isr& operator =(const iqueue_spsc_isr&) ETL_DELETE;
 
-#if ETL_CPP11_SUPPORTED
+#if ETL_USING_CPP11
     iqueue_spsc_isr(iqueue_spsc_isr&&) = delete;
     iqueue_spsc_isr& operator =(iqueue_spsc_isr&&) = delete;
 #endif
@@ -729,7 +825,7 @@ namespace etl
     queue_spsc_isr(const queue_spsc_isr&);
     queue_spsc_isr& operator = (const queue_spsc_isr&);
 
-#if ETL_CPP11_SUPPORTED
+#if ETL_USING_CPP11
     queue_spsc_isr(queue_spsc_isr&&) = delete;
     queue_spsc_isr& operator =(queue_spsc_isr&&) = delete;
 #endif
@@ -737,6 +833,9 @@ namespace etl
     /// The uninitialised buffer of T used in the queue_spsc_isr.
     typename etl::aligned_storage<sizeof(T), etl::alignment_of<T>::value>::type buffer[MAX_SIZE];
   };
+
+  template <typename T, size_t SIZE, typename TAccess, const size_t MEMORY_MODEL>
+  ETL_CONSTANT typename queue_spsc_isr<T, SIZE, TAccess, MEMORY_MODEL>::size_type queue_spsc_isr<T, SIZE, TAccess, MEMORY_MODEL>::MAX_SIZE;
 }
 
 #endif

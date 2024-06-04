@@ -5,7 +5,7 @@ Embedded Template Library.
 https://github.com/ETLCPP/etl
 https://www.etlcpp.com
 
-Copyright(c) 2017 jwellbelove
+Copyright(c) 2017 John Wellbelove
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files(the "Software"), to deal
@@ -62,6 +62,9 @@ namespace
     const EtlData cetldata = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9 };
     const StlData cstldata = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9 };
     const StlVData cstlvdata = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9 };
+
+    const int FillData = -1;
+    const EtlData filldata = { -1, -1, -1, -1, -1, -1, -1, -1, -1, -1 };
 
     int cdata[] = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9 };
     int* pcdata = cdata;
@@ -284,7 +287,7 @@ namespace
     }
 
     //*************************************************************************
-#if !defined(ETL_TEMPLATE_DEDUCTION_GUIDE_TESTS_DISABLED)
+#if ETL_USING_CPP17 && ETL_HAS_INITIALIZER_LIST && !defined(ETL_TEMPLATE_DEDUCTION_GUIDE_TESTS_DISABLED)
     TEST(test_cpp17_deduced_constructor)
     {
       etl::array data{ 0, 1, 2, 3, 4, 5, 6, 7, 8, 9 };
@@ -667,63 +670,102 @@ namespace
       CHECK(isEqual);
     }
 
-	TEST(test_remove_prefix_boundary)
-	{
-		// On-point test
-		std::vector<int> original = { 1, 2, 3, 4, 5, 6, 7, 8 };
+    //*************************************************************************
+	  TEST(test_remove_prefix_boundary)
+	  {
+		  // On-point test
+		  std::vector<int> original = { 1, 2, 3, 4, 5, 6, 7, 8 };
 
-		View view(original);
+		  View view(original);
 
-		view.remove_prefix(original.size());
+		  view.remove_prefix(original.size());
 
-		CHECK(view.empty());
+		  CHECK(view.empty());
 
-		// Off-point test
+		  // Off-point test
 
-		std::vector<int> original2 = { 1, 2, 3, 4, 5, 6, 7, 8 };
+		  std::vector<int> original2 = { 1, 2, 3, 4, 5, 6, 7, 8 };
 
-		View view2(original2);
+		  View view2(original2);
 
-		view2.remove_prefix(original.size() + 1);
+		  view2.remove_prefix(original.size() + 1);
 
-		CHECK(view2.empty());
-	}
+		  CHECK(view2.empty());
+	  }
 
-	TEST(test_remove_suffix_boundary)
-	{
-		// On-point test
-		std::vector<int> original = { 1, 2, 3, 4, 5, 6, 7, 8 };
+    //*************************************************************************
+	  TEST(test_remove_suffix_boundary)
+	  {
+		  // On-point test
+		  std::vector<int> original = { 1, 2, 3, 4, 5, 6, 7, 8 };
 
-		View view(original);
+		  View view(original);
 
-		view.remove_suffix(original.size());
+		  view.remove_suffix(original.size());
 
-		CHECK(view.empty());
+		  CHECK(view.empty());
 
-		// Off-point test
+		  // Off-point test
 
-		std::vector<int> original2 = { 1, 2, 3, 4, 5, 6, 7, 8 };
+		  std::vector<int> original2 = { 1, 2, 3, 4, 5, 6, 7, 8 };
 
-		View view2(original2);
+		  View view2(original2);
 
-		view2.remove_suffix(original.size() + 1);
+		  view2.remove_suffix(original.size() + 1);
 
-		CHECK(view2.empty());
-	}
+		  CHECK(view2.empty());
+	  }
+
     //*************************************************************************
     TEST(test_hash)
     {
       View  view(etldata.begin(), etldata.end());
       CView cview(etldata.begin(), etldata.end());
 
-      size_t hashdata = etl::private_hash::generic_hash<size_t>(reinterpret_cast<const uint8_t*>(&etldata[0]),
-                                                                    reinterpret_cast<const uint8_t*>(&etldata[etldata.size()]));
+      size_t hashdata = etl::private_hash::generic_hash<size_t>(reinterpret_cast<const uint8_t*>(etldata.data()),
+                                                                reinterpret_cast<const uint8_t*>(etldata.data() + etldata.size()));
 
       size_t hashview  = etl::hash<View>()(view);
       size_t hashcview = etl::hash<CView>()(cview);
 
       CHECK_EQUAL(hashdata, hashview);
       CHECK_EQUAL(hashdata, hashcview);
+    }
+
+    //*************************************************************************
+#include "etl/private/diagnostic_unused_function_push.h"
+
+    struct C_issue_482 {};
+
+    void f_issue_482(etl::array_view<char>)
+    {
+    }
+
+    void f_issue_482(etl::array_view<C_issue_482>)
+    {
+    }
+
+    TEST(test_issue_482_2)
+    {
+      etl::array<C_issue_482, 10> c;
+
+      // Should compile without ambiguous function error.
+      f_issue_482(c);
+    }
+
+#include "etl/private/diagnostic_pop.h"
+
+    //*************************************************************************
+    TEST(test_fill)
+    {
+      View view;
+
+      view.assign(etldata.begin(), etldata.end());
+
+      view.fill(FillData);
+
+      bool isEqual = std::equal(filldata.begin(), filldata.end(), view.begin());
+      CHECK(isEqual);
     }
   };
 }

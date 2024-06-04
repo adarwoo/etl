@@ -5,7 +5,7 @@ Embedded Template Library.
 https://github.com/ETLCPP/etl
 https://www.etlcpp.com
 
-Copyright(c) 2018 jwellbelove
+Copyright(c) 2018 John Wellbelove
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files(the "Software"), to deal
@@ -96,7 +96,7 @@ namespace
       PoolDC pool;
       DataDC data(pool);
 
-      CHECK_EQUAL(data.size(), size_t(0UL));
+      CHECK_EQUAL(data.size(), 0UL);
       CHECK(data.empty());
       CHECK(!data.full());
       CHECK_EQUAL(data.available(), SIZE);
@@ -181,7 +181,7 @@ namespace
       CHECK(are_equal);
     }
 
-#if ETL_USING_STL
+#if ETL_HAS_INITIALIZER_LIST
     //*************************************************************************
     TEST_FIXTURE(SetupFixture, test_constructor_initializer_list)
     {
@@ -496,9 +496,9 @@ namespace
       data2.assign(sorted_data.begin(), sorted_data.end());
       CHECK_EQUAL(sorted_data.size(), data2.size());
       data1.clear();
-      CHECK_EQUAL(size_t(0UL), data1.size());
+      CHECK_EQUAL(0UL, data1.size());
       data2.clear();
-      CHECK_EQUAL(size_t(0UL), data2.size());
+      CHECK_EQUAL(0UL, data2.size());
     }
 
     //*************************************************************************
@@ -520,12 +520,12 @@ namespace
       data1.resize(SIZE);
       CHECK_EQUAL(SIZE, data1.size());
       data1.clear();
-      CHECK_EQUAL(size_t(0UL), data1.size());
+      CHECK_EQUAL(0UL, data1.size());
 
       data2.resize(SIZE);
       CHECK_EQUAL(SIZE, data2.size());
       data2.clear();
-      CHECK_EQUAL(size_t(0UL), data2.size());
+      CHECK_EQUAL(0UL, data2.size());
     }
 
     //*************************************************************************
@@ -1348,7 +1348,9 @@ namespace
       DataNDC data1(sorted_data.begin(), sorted_data.end(), pool);
       DataNDC other_data(data1, pool);
 
+#include "etl/private/diagnostic_self_assign_overloaded_push.h" 
       other_data = other_data;
+#include "etl/private/diagnostic_pop.h" 
 
       CHECK_EQUAL(data1.size(), other_data.size());
 

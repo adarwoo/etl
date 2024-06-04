@@ -5,7 +5,7 @@ Embedded Template Library.
 https://github.com/ETLCPP/etl
 https://www.etlcpp.com
 
-Copyright(c) 2020 jwellbelove
+Copyright(c) 2020 John Wellbelove
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files(the "Software"), to deal
@@ -26,6 +26,9 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ******************************************************************************/
 
+#include "etl/platform.h"
+#if ETL_USING_CPP17
+
 #include "unit_test_framework.h"
 
 #include <string>
@@ -36,19 +39,36 @@ SOFTWARE.
 #include "etl/string_utilities.h"
 
 #undef STR
-#define STR(x) L##x
+#define STR(x) u##x
+
+#undef STR_PTR
+#define STR_PTR const char16_t*
 
 namespace
 {
+  //***********************************
+  //std::ostream& operator << (std::ostream& os, const std::wstring::value_type& c)
+  //{
+  //  os << uint16_t(c);
+
+  //  return os;
+  //}
+
   SUITE(test_string_utilities_std_u16)
   {
-    using String     = std::wstring;
-    using IString    = std::wstring;
-    using StringView = std::wstring_view;
-    using Char       = std::wstring::value_type;
+    using String     = std::u16string;
+    using IString    = std::u16string;
+#if ETL_USING_CPP17
+    using StringView = std::u16string_view;
+#endif
+    using Char       = std::u16string::value_type;
     using Vector     = std::vector<String>;
 
+#if ETL_USING_CPP17
     constexpr auto Whitespace = etl::whitespace_v<String::value_type>;
+#else
+    STR_PTR Whitespace = etl::whitespace<String::value_type>::value();
+#endif
 
     //*************************************************************************
     TEST(test_trim_whitespace_left_empty)
@@ -909,7 +929,7 @@ namespace
         { STR(':'), STR('_') }
       };
 
-      etl::replace_characters(text, etl::begin(lookup), etl::end(lookup));
+      etl::replace_characters(text, ETL_OR_STD11::begin(lookup), ETL_OR_STD11::end(lookup));
 
       CHECK(expected == text);
     }
@@ -929,7 +949,7 @@ namespace
         { STR(':'), STR('_') }
       };
 
-      etl::replace_characters(text, etl::begin(lookup), etl::end(lookup));
+      etl::replace_characters(text, ETL_OR_STD11::begin(lookup), ETL_OR_STD11::end(lookup));
 
       CHECK(expected == text);
     }
@@ -949,7 +969,7 @@ namespace
         { STR(":"),   STR(".txt") }
       };
 
-      etl::replace_strings(text, etl::begin(lookup), etl::end(lookup));
+      etl::replace_strings(text, ETL_OR_STD11::begin(lookup), ETL_OR_STD11::end(lookup));
 
       CHECK(expected == text);
     }
@@ -969,7 +989,7 @@ namespace
         { STR(":"),   STR(".txt") }
       };
 
-      etl::replace_strings(text, etl::begin(lookup), etl::end(lookup));
+      etl::replace_strings(text, ETL_OR_STD11::begin(lookup), ETL_OR_STD11::end(lookup));
 
       CHECK(expected == text);
     }
@@ -1571,3 +1591,5 @@ namespace
     }
   };
 }
+
+#endif

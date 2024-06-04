@@ -7,7 +7,7 @@ Embedded Template Library.
 https://github.com/ETLCPP/etl
 https://www.etlcpp.com
 
-Copyright(c) 2021 jwellbelove
+Copyright(c) 2021 John Wellbelove
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files(the "Software"), to deal
@@ -31,6 +31,8 @@ SOFTWARE.
 #ifndef ETL_CRC_INCLUDED
 #define ETL_CRC_INCLUDED
 
+#include "crc1.h"
+
 #include "crc8_ccitt.h"
 #include "crc8_cdma2000.h"
 #include "crc8_darc.h"
@@ -38,6 +40,8 @@ SOFTWARE.
 #include "crc8_ebu.h"
 #include "crc8_icode.h"
 #include "crc8_itu.h"
+#include "crc8_j1850_zero.h"
+#include "crc8_j1850.h"
 #include "crc8_maxim.h"
 #include "crc8_rohc.h"
 #include "crc8_wcdma.h"
@@ -67,6 +71,7 @@ SOFTWARE.
 #include "crc16_usb.h"
 #include "crc16_x25.h"
 #include "crc16_xmodem.h"
+#include "crc16_m17.h"
 
 #include "crc32.h"
 #include "crc32_bzip2.h"

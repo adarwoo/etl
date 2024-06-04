@@ -7,7 +7,7 @@ Embedded Template Library.
 https://github.com/ETLCPP/etl
 https://www.etlcpp.com
 
-Copyright(c) 2019 jwellbelove
+Copyright(c) 2019 John Wellbelove
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files(the "Software"), to deal
@@ -31,9 +31,6 @@ SOFTWARE.
 #ifndef ETL_SPSC_QUEUE_LOCKED_INCLUDED
 #define ETL_SPSC_QUEUE_LOCKED_INCLUDED
 
-#include <stddef.h>
-#include <stdint.h>
-
 #include "platform.h"
 #include "memory.h"
 #include "parameter_type.h"
@@ -42,6 +39,9 @@ SOFTWARE.
 #include "function.h"
 #include "utility.h"
 #include "placement_new.h"
+
+#include <stddef.h>
+#include <stdint.h>
 
 namespace etl
 {
@@ -118,7 +118,7 @@ namespace etl
     {
       ++index;
 
-      if (index == maximum)
+      if (index == maximum) ETL_UNLIKELY
       {
         index = 0;
       }
@@ -200,7 +200,7 @@ namespace etl
     typedef T                          value_type;       ///< The type stored in the queue.
     typedef T&                         reference;        ///< A reference to the type used in the queue.
     typedef const T&                   const_reference;  ///< A const reference to the type used in the queue.
-#if ETL_CPP11_SUPPORTED
+#if ETL_USING_CPP11
     typedef T&&                        rvalue_reference; ///< An rvalue reference to the type used in the queue.
 #endif
     typedef typename base_t::size_type size_type;        ///< The type used for determining the size of the queue.
@@ -227,7 +227,7 @@ namespace etl
       return result;
     }
 
-#if ETL_CPP11_SUPPORTED && ETL_NOT_USING_STLPORT && !defined(ETL_QUEUE_LOCKED_FORCE_CPP03)
+#if ETL_USING_CPP11 && ETL_NOT_USING_STLPORT && !defined(ETL_QUEUE_LOCKED_FORCE_CPP03_IMPLEMENTATION)
     //*************************************************************************
     /// Push a value to the queue.
     /// Unlocked.
@@ -253,7 +253,7 @@ namespace etl
     }
 #endif
 
-#if ETL_CPP11_SUPPORTED && ETL_NOT_USING_STLPORT && !defined(ETL_QUEUE_LOCKED_FORCE_CPP03)
+#if ETL_USING_CPP11 && ETL_NOT_USING_STLPORT && !defined(ETL_QUEUE_LOCKED_FORCE_CPP03_IMPLEMENTATION)
     //*************************************************************************
     /// Constructs a value in the queue 'in place'.
     /// Unlocked.
@@ -318,6 +318,21 @@ namespace etl
     bool emplace_from_unlocked(const T1& value1, const T2& value2, const T3& value3, const T4& value4)
     {
       return emplace_implementation(value1, value2, value3, value4);
+    }
+
+    //*************************************************************************
+    /// Constructs a value in the queue 'in place'.
+    /// If asserts or exceptions are enabled, throws an etl::queue_full if the queue if already full.
+    //*************************************************************************
+    bool emplace()
+    {
+      lock();
+
+      bool result = emplace_implementation();
+
+      unlock();
+
+      return result;
     }
 
     //*************************************************************************
@@ -425,6 +440,52 @@ namespace etl
       lock();
 
       bool result = pop_implementation();
+
+      unlock();
+
+      return result;
+    }
+
+    //*************************************************************************
+    /// Peek a value from the front of the queue.
+    /// Unlocked
+    //*************************************************************************
+    reference front_from_unlocked()
+    {
+      return front_implementation();
+    }
+
+    //*************************************************************************
+    /// Peek a value from the front of the queue.
+    /// Unlocked
+    //*************************************************************************
+    const_reference front_from_unlocked() const
+    {
+      return front_implementation();
+    }
+
+    //*************************************************************************
+    /// Peek a value from the front of the queue.
+    //*************************************************************************
+    reference front()
+    {
+      lock();
+
+      reference result = front_implementation();
+
+      unlock();
+
+      return result;
+    }
+
+    //*************************************************************************
+    /// Peek a value from the front of the queue.
+    //*************************************************************************
+    const_reference front() const
+    {
+      lock();
+
+      const_reference result = front_implementation();
 
       unlock();
 
@@ -548,7 +609,7 @@ namespace etl
       return false;
     }
 
-#if ETL_CPP11_SUPPORTED && ETL_NOT_USING_STLPORT && !defined(ETL_QUEUE_LOCKED_FORCE_CPP03)
+#if ETL_USING_CPP11 && ETL_NOT_USING_STLPORT && !defined(ETL_QUEUE_LOCKED_FORCE_CPP03_IMPLEMENTATION)
     //*************************************************************************
     /// Push a value to the queue.
     /// Unlocked.
@@ -571,7 +632,7 @@ namespace etl
     }
 #endif
 
-#if ETL_CPP11_SUPPORTED && ETL_NOT_USING_STLPORT && !defined(ETL_QUEUE_LOCKED_FORCE_CPP03)
+#if ETL_USING_CPP11 && ETL_NOT_USING_STLPORT && !defined(ETL_QUEUE_LOCKED_FORCE_CPP03_IMPLEMENTATION)
     //*************************************************************************
     /// Constructs a value in the queue 'in place'.
     /// Unlocked.
@@ -594,6 +655,26 @@ namespace etl
       return false;
     }
 #else
+    //*************************************************************************
+    /// Constructs a value in the queue 'in place'.
+    //*************************************************************************
+    bool emplace_implementation()
+    {
+      if (this->current_size != this->MAX_SIZE)
+      {
+        ::new (&p_buffer[this->write_index]) T();
+
+        this->write_index = this->get_next_index(this->write_index, this->MAX_SIZE);
+
+        ++this->current_size;
+
+        return true;
+      }
+
+      // Queue is full.
+      return false;
+    }
+
     //*************************************************************************
     /// Constructs a value in the queue 'in place'.
     //*************************************************************************
@@ -691,7 +772,7 @@ namespace etl
         return false;
       }
 
-#if ETL_CPP11_SUPPORTED && ETL_NOT_USING_STLPORT && !defined(ETL_QUEUE_LOCKABLE_FORCE_CPP03)
+#if ETL_USING_CPP11 && ETL_NOT_USING_STLPORT && !defined(ETL_QUEUE_LOCKABLE_FORCE_CPP03_IMPLEMENTATION)
       value = etl::move(p_buffer[this->read_index]);
 #else
       value = p_buffer[this->read_index];
@@ -704,6 +785,24 @@ namespace etl
       --this->current_size;
 
       return true;
+    }
+
+    //*************************************************************************
+    /// Peek a value from the front of the queue.
+    /// Unlocked
+    //*************************************************************************
+    reference front_implementation()
+    {
+      return p_buffer[this->read_index];
+    }
+
+    //*************************************************************************
+    /// Peek a value from the front of the queue.
+    /// Unlocked
+    //*************************************************************************
+    const_reference front_implementation() const
+    {
+      return p_buffer[this->read_index];
     }
 
     //*************************************************************************
@@ -731,7 +830,7 @@ namespace etl
     iqueue_spsc_locked(const iqueue_spsc_locked&) ETL_DELETE;
     iqueue_spsc_locked& operator =(const iqueue_spsc_locked&) ETL_DELETE;
 
-#if ETL_CPP11_SUPPORTED
+#if ETL_USING_CPP11
     iqueue_spsc_locked(iqueue_spsc_locked&&) = delete;
     iqueue_spsc_locked& operator =(iqueue_spsc_locked&&) = delete;
 #endif
@@ -769,9 +868,9 @@ namespace etl
     /// Default constructor.
     //*************************************************************************
 
-    queue_spsc_locked(const etl::ifunction<void>& lock,
-                      const etl::ifunction<void>& unlock)
-      : base_t(reinterpret_cast<T*>(buffer.raw), MAX_SIZE, lock, unlock)
+    queue_spsc_locked(const etl::ifunction<void>& lock_,
+                      const etl::ifunction<void>& unlock_)
+      : base_t(reinterpret_cast<T*>(buffer.raw), MAX_SIZE, lock_, unlock_)
     {
     }
 
@@ -788,7 +887,7 @@ namespace etl
     queue_spsc_locked(const queue_spsc_locked&) ETL_DELETE;
     queue_spsc_locked& operator = (const queue_spsc_locked&) ETL_DELETE;
 
-#if ETL_CPP11_SUPPORTED
+#if ETL_USING_CPP11
     queue_spsc_locked(queue_spsc_locked&&) = delete;
     queue_spsc_locked& operator =(queue_spsc_locked&&) = delete;
 #endif
@@ -796,6 +895,9 @@ namespace etl
     /// The uninitialised buffer of T used in the queue_lockable.
     etl::uninitialized_buffer_of<T, MAX_SIZE> buffer;
   };
+
+  template <typename T, size_t SIZE, const size_t MEMORY_MODEL>
+  ETL_CONSTANT typename queue_spsc_locked<T, SIZE, MEMORY_MODEL>::size_type queue_spsc_locked<T, SIZE, MEMORY_MODEL>::MAX_SIZE;
 }
 
 #endif

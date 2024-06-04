@@ -7,7 +7,7 @@ Embedded Template Library.
 https://github.com/ETLCPP/etl
 https://www.etlcpp.com
 
-Copyright(c) 2020 jwellbelove
+Copyright(c) 2020 John Wellbelove
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files(the "Software"), to deal
@@ -31,19 +31,16 @@ SOFTWARE.
 #ifndef ETL_FLAGS_INCLUDED
 #define ETL_FLAGS_INCLUDED
 
-#include <string.h>
-#include <stddef.h>
-#include <stdint.h>
-
 #include "platform.h"
 #include "algorithm.h"
 #include "type_traits.h"
 #include "integral_limits.h"
 #include "static_assert.h"
+#include "initializer_list.h"
 
-#if ETL_CPP11_SUPPORTED && ETL_NOT_USING_STLPORT && ETL_USING_STL
-  #include <initializer_list>
-#endif
+#include <string.h>
+#include <stddef.h>
+#include <stdint.h>
 
 namespace etl
 {
@@ -351,6 +348,15 @@ namespace etl
 
     value_type data;
   };
+
+  template <typename T, T MASK>
+  ETL_CONSTANT typename flags<T, MASK>::value_type flags<T, MASK>::ALL_SET;
+
+  template <typename T, T MASK>
+  ETL_CONSTANT typename flags<T, MASK>::value_type flags<T, MASK>::ALL_CLEAR;
+
+  template <typename T, T MASK>
+  ETL_CONSTANT size_t flags<T, MASK>::NBITS;
 
   //***************************************************************************
   /// operator ==

@@ -7,7 +7,7 @@ Embedded Template Library.
 https://github.com/ETLCPP/etl
 https://www.etlcpp.com
 
-Copyright(c) 2018 jwellbelove
+Copyright(c) 2018 John Wellbelove
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files(the "Software"), to deal
@@ -32,6 +32,7 @@ SOFTWARE.
 #define ETL_ABSOLUTE_INCLUDED
 
 #include "type_traits.h"
+#include "integral_limits.h"
 
 namespace etl
 {
@@ -39,8 +40,10 @@ namespace etl
   // For signed types.
   //***************************************************************************
   template <typename T>
-  ETL_CONSTEXPR typename etl::enable_if<etl::is_signed<T>::value, T>::type
-    absolute(T value)
+  ETL_NODISCARD
+  ETL_CONSTEXPR 
+  typename etl::enable_if<etl::is_signed<T>::value, T>::type
+    absolute(T value) ETL_NOEXCEPT
   {
     return (value < T(0)) ? -value : value;
   }
@@ -49,10 +52,43 @@ namespace etl
   // For unsigned types.
   //***************************************************************************
   template <typename T>
-  ETL_CONSTEXPR typename etl::enable_if<etl::is_unsigned<T>::value, T>::type
-    absolute(T value)
+  ETL_NODISCARD
+  ETL_CONSTEXPR
+  typename etl::enable_if<etl::is_unsigned<T>::value, T>::type
+    absolute(T value) ETL_NOEXCEPT
   {
     return value;
+  }
+
+  //***************************************************************************
+  // For signed types.
+  // Returns the result as the unsigned type.
+  //***************************************************************************
+#if ETL_USING_CPP11
+  template <typename T, typename TReturn = typename etl::make_unsigned<T>::type>
+#else
+  template <typename T, typename TReturn>
+  #endif
+  ETL_NODISCARD
+  ETL_CONSTEXPR 
+  typename etl::enable_if<etl::is_signed<T>::value, TReturn>::type
+    absolute_unsigned(T value) ETL_NOEXCEPT
+  {
+    return (value == etl::integral_limits<T>::min) ? (etl::integral_limits<TReturn>::max / 2U) + 1U
+                                                   : (value < T(0)) ? TReturn(-value) : TReturn(value);
+  }
+
+  //***************************************************************************
+  // For unsigned types.
+  // Returns the result as the unsigned type.
+  //***************************************************************************
+  template <typename T>
+  ETL_NODISCARD
+  ETL_CONSTEXPR
+  typename etl::enable_if<etl::is_unsigned<T>::value, T>::type
+    absolute_unsigned(T value) ETL_NOEXCEPT
+  {
+    return etl::absolute(value);
   }
 }
 

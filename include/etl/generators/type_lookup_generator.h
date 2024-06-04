@@ -5,7 +5,7 @@ Embedded Template Library.
 https://github.com/ETLCPP/etl
 https://www.etlcpp.com
 
-Copyright(c) 2017 jwellbelove
+Copyright(c) 2017 John Wellbelove
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files(the "Software"), to deal
@@ -29,13 +29,13 @@ SOFTWARE.
 #ifndef ETL_TYPE_LOOKUP_INCLUDED
 #define ETL_TYPE_LOOKUP_INCLUDED
 
-#include <limits.h>
-
 #include "platform.h"
 #include "type_traits.h"
 #include "static_assert.h"
 #include "integral_limits.h"
 #include "null_type.h"
+
+#include <limits.h>
 
 /*[[[cog
 import cog
@@ -83,7 +83,7 @@ namespace etl
     typedef T2 type2;
   };
 
-#if ETL_CPP11_SUPPORTED && !defined(ETL_TYPE_SELECT_FORCE_CPP03)
+#if ETL_USING_CPP11 && !defined(ETL_TYPE_SELECT_FORCE_CPP03_IMPLEMENTATION)
   //***************************************************************************
   // type_id_lookup 
   //***************************************************************************
@@ -126,10 +126,8 @@ namespace etl
       static_assert(!(etl::is_same<nulltype, type>::value), "Invalid id");
     };
 
-#if ETL_CPP11_SUPPORTED
     template <int ID>
     using type_from_id_t = typename type_from_id<ID>::type;
-#endif
 
   private:
 
@@ -139,14 +137,14 @@ namespace etl
     template <typename T, typename T1, typename... TRest>
     struct id_from_type_helper
     {
-      static constexpr size_t value = etl::is_same<T, typename T1::type>::value ? T1::ID : id_from_type_helper<T, TRest...>::value;
+      static constexpr size_t value = etl::is_same<T, typename T1::type>::value ? size_t(T1::ID) : id_from_type_helper<T, TRest...>::value;
     };
 
     // Specialisation for 1 type pair.
     template <typename T, typename T1>
     struct id_from_type_helper<T, T1>
     {
-      static constexpr size_t value = etl::is_same<T, typename T1::type>::value ? T1::ID : UNKNOWN;
+      static constexpr size_t value = etl::is_same<T, typename T1::type>::value ? size_t(T1::ID) : UNKNOWN;
     };
 
   public:
@@ -162,7 +160,7 @@ namespace etl
       static_assert(value != UNKNOWN, "Invalid type");
     };
 
-#if ETL_CPP17_SUPPORTED
+#if ETL_USING_CPP17
     template <typename T>
     static constexpr size_t id_from_type_v = id_from_type<T>::value;
 #endif
@@ -222,11 +220,9 @@ namespace etl
       static_assert(!etl::is_same<type, nulltype>::value, "Type match not found");
     };
 
-#if ETL_CPP11_SUPPORTED
     // Template alias.
     template <typename T>
     using type_from_type_t = typename type_from_type<T>::type;
-#endif
   };
 
 #else
@@ -278,7 +274,7 @@ namespace etl
   cog.outl("    {")
   cog.outl("      value =")
   for n in range(1, int(NTypes) + 1) :
-      cog.outl("        (unsigned int) etl::is_same<T, typename T%s::type>::value ? T%s::ID :" % (n, n))
+      cog.outl("        (unsigned int) etl::is_same<T, typename T%s::type>::value ? (unsigned int)T%s::ID :" % (n, n))
   cog.outl("        (unsigned int) UNKNOWN")
   cog.outl("    };")
   cog.outl("")

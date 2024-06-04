@@ -5,7 +5,7 @@ Embedded Template Library.
 https://github.com/ETLCPP/etl
 https://www.etlcpp.com
 
-Copyright(c) 2021 jwellbelove
+Copyright(c) 2021 John Wellbelove
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files(the "Software"), to deal
@@ -29,8 +29,6 @@ SOFTWARE.
 #ifndef ETL_REFERENCE_COUNTED_MESSAGE_INCLUDED
 #define ETL_REFERENCE_COUNTED_MESSAGE_INCLUDED
 
-#include <stdint.h>
-
 #include "platform.h"
 #include "message.h"
 #include "atomic.h"
@@ -38,6 +36,8 @@ SOFTWARE.
 #include "static_assert.h"
 #include "type_traits.h"
 #include "ireference_counted_message_pool.h"
+
+#include <stdint.h>
 
 namespace etl
 {
@@ -69,14 +69,19 @@ namespace etl
     typedef TMessage message_type;
     typedef TCounter counter_type;
 
+#if ETL_USING_CPP11
     //***************************************************************************
     /// Constructor
     /// \param owner The message owner.
+    /// \param args  The constructor arguments.
     //***************************************************************************
-    reference_counted_message(etl::ireference_counted_message_pool& owner_)
-      : owner(owner_)
+    template <typename... TArgs>
+    reference_counted_message(etl::ireference_counted_message_pool& owner_, TArgs&&... args)
+      : rc_object(etl::forward<TArgs>(args)...)
+      , owner(owner_)
     {
     }
+#endif
 
     //***************************************************************************
     /// Constructor
@@ -212,7 +217,7 @@ namespace etl
     etl::reference_counted_object<TMessage, void> rc_object; ///< The reference counted object.
   };
 
-#if ETL_CPP11_SUPPORTED && ETL_HAS_ATOMIC
+#if ETL_USING_CPP11 && ETL_HAS_ATOMIC
   //***************************************************************************
   /// Class for creating reference counted objects using an atomic counter.
   /// \tparam TObject  The type to be reference counted.

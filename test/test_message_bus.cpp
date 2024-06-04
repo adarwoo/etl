@@ -5,7 +5,7 @@ Embedded Template Library.
 https://github.com/ETLCPP/etl
 https://www.etlcpp.com
 
-Copyright(c) 2017 jwellbelove
+Copyright(c) 2017 John Wellbelove
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files(the "Software"), to deal
@@ -45,7 +45,9 @@ namespace
     MESSAGE2,
     MESSAGE3,
     MESSAGE4,
-    MESSAGE5
+    MESSAGE5,
+    MESSAGE6,
+    MESSAGE7
   };
 
   enum
@@ -104,6 +106,14 @@ namespace
   };
 
   Response response;
+
+  struct Message6 : public etl::message<MESSAGE6>
+  {
+  };
+
+  struct Message7 : public etl::message<MESSAGE7>
+  {
+  };
 
   int call_order;
 
@@ -211,7 +221,7 @@ namespace
       ++message5_count;
     }
 
-    void on_receive_unknown(const etl::imessage& msg)
+    void on_receive_unknown(const etl::imessage&)
     {
       ++message_unknown_count;
       //etl::send_message(msg.callback, response);
@@ -224,12 +234,56 @@ namespace
     int message_unknown_count;
   };
 
-  SUITE(test_message_router)
+  //***************************************************************************
+  // Router that handles message 6 and returns nothing.
+  //***************************************************************************
+  class RouterC : public etl::message_router<RouterC, Message6>
+  {
+  public:
+
+    RouterC(etl::message_router_id_t id)
+      : message_router(id)
+    {
+    }
+
+    void on_receive(const Message6&)
+    {
+    }
+
+    void on_receive_unknown(const etl::imessage&)
+    {
+    }
+  };
+
+  //***************************************************************************
+  template <size_t Size>
+  class MessageBus : public etl::message_bus<Size>
+  {
+  public:
+
+    MessageBus()
+      : message_count(0)
+    {
+    }
+
+    using etl::message_bus<Size>::receive;
+
+    // Hook 'receive' to count the incoming messages.
+    void receive(etl::message_router_id_t id, const etl::imessage& msg)
+    {
+      ++message_count;
+      etl::message_bus<Size>::receive(id, msg);
+    }
+
+    int message_count;
+  };
+
+  SUITE(test_message_bus)
   {
     //*************************************************************************
     TEST(message_bus_subscribe_unsubscribe)
     {
-      etl::message_bus<2> bus1;
+      MessageBus<2> bus1;
 
       RouterA router1(0);
       RouterB router2(1);
@@ -260,14 +314,16 @@ namespace
       // Erase router from empty list.
       bus1.unsubscribe(router2);
       CHECK_EQUAL(0U, bus1.size());
+
+      CHECK_EQUAL(0, bus1.message_count);
     }
 
     //*************************************************************************
     TEST(message_bus_subscribe_unsubscribe_sub_bus)
     {
-      etl::message_bus<4> bus1;
-      etl::message_bus<2> bus2;
-      etl::message_bus<3> bus3;
+      MessageBus<4> bus1;
+      MessageBus<2> bus2;
+      MessageBus<3> bus3;
 
       RouterA router1(ROUTER1);
       RouterA router2(ROUTER2);
@@ -289,12 +345,16 @@ namespace
 
       bus1.unsubscribe(etl::imessage_bus::ALL_MESSAGE_ROUTERS);
       CHECK_EQUAL(0U, bus1.size());
+
+      CHECK_EQUAL(0, bus1.message_count);
+      CHECK_EQUAL(0, bus2.message_count);
+      CHECK_EQUAL(0, bus3.message_count);
     }
 
     //*************************************************************************
     TEST(message_bus_broadcast)
     {
-      etl::message_bus<2> bus1;
+      MessageBus<2> bus1;
 
       RouterA router1(ROUTER1);
       RouterB router2(ROUTER2);
@@ -376,12 +436,14 @@ namespace
       CHECK_EQUAL(0, router2.message_unknown_count);
 
       CHECK_EQUAL(7, callback.message5_count);
+
+      CHECK_EQUAL(4, bus1.message_count);
     }
 
     //*************************************************************************
     TEST(message_bus_broadcast_as_router)
     {
-      etl::message_bus<2> bus1;
+      MessageBus<2> bus1;
 
       RouterA router1(ROUTER1);
       RouterB router2(ROUTER2);
@@ -466,12 +528,14 @@ namespace
       CHECK_EQUAL(0, router2.message_unknown_count);
 
       CHECK_EQUAL(7, callback.message5_count);
+
+      CHECK_EQUAL(4, bus1.message_count);
     }
 
     //*************************************************************************
     TEST(message_bus_addressed)
     {
-      etl::message_bus<2> bus1;
+      MessageBus<2> bus1;
 
       RouterA router1(ROUTER1);
       RouterB router2(ROUTER2);
@@ -571,12 +635,14 @@ namespace
       CHECK_EQUAL(0, router2.message_unknown_count);
 
       CHECK_EQUAL(4, callback.message5_count);
+      
+      CHECK_EQUAL(5, bus1.message_count);
     }
 
     //*************************************************************************
     TEST(message_bus_addressed_duplicate_router_id)
     {
-      etl::message_bus<3> bus1;
+      MessageBus<3> bus1;
 
       RouterA router1(ROUTER1);
       RouterB router2(ROUTER1);
@@ -613,13 +679,15 @@ namespace
       CHECK_EQUAL(0, router3.message_unknown_count);
 
       CHECK_EQUAL(2, callback.message5_count);
+
+      CHECK_EQUAL(1, bus1.message_count);
     }
 
     //*************************************************************************
     TEST(message_bus_broadcast_addressed_sub_bus)
     {
-      etl::message_bus<3> bus1;
-      etl::message_bus<2> bus2;
+      MessageBus<3> bus1;
+      MessageBus<2> bus2;
 
       RouterA router1(ROUTER1);
       RouterA router2(ROUTER2);
@@ -729,14 +797,17 @@ namespace
       CHECK_EQUAL(0, router4.message_unknown_count);
 
       CHECK_EQUAL(6, callback.message5_count);
+
+      CHECK_EQUAL(3, bus1.message_count);
+      CHECK_EQUAL(3, bus2.message_count);
     }
 
     //*************************************************************************
     TEST(message_bus_broadcast_order)
     {
-      etl::message_bus<4> bus1;
-      etl::message_bus<2> bus2;
-      etl::message_bus<2> bus3;
+      MessageBus<4> bus1;
+      MessageBus<2> bus2;
+      MessageBus<2> bus3;
 
       RouterA router1(ROUTER1);
       RouterA router2(ROUTER2);
@@ -766,13 +837,17 @@ namespace
       CHECK_EQUAL(2, router4b.order);
       CHECK_EQUAL(3, router4a.order);
       CHECK_EQUAL(4, router3.order);
+
+      CHECK_EQUAL(1, bus1.message_count);
+      CHECK_EQUAL(1, bus2.message_count);
+      CHECK_EQUAL(1, bus3.message_count);
     }
 
     //*************************************************************************
     TEST(message_bus_broadcast_addressed_successor_bus)
     {
-      etl::message_bus<3> bus1;
-      etl::message_bus<2> bus2;
+      MessageBus<3> bus1;
+      MessageBus<2> bus2;
 
       RouterA router1(ROUTER1);
       RouterA router2(ROUTER2);
@@ -882,6 +957,55 @@ namespace
       CHECK_EQUAL(0, router4.message_unknown_count);
 
       CHECK_EQUAL(6, callback.message5_count);
+
+      CHECK_EQUAL(3, bus1.message_count);
+      CHECK_EQUAL(3, bus2.message_count);
+    }
+
+    //*************************************************************************
+    TEST(message_bus_successor_to_message_producer)
+    {
+      MessageBus<2> bus;
+      etl::message_producer producer(ROUTER2);
+      RouterA router(ROUTER1);
+      Response message;
+
+      bus.subscribe(router);
+      bus.subscribe(producer);
+      producer.set_successor(bus);
+
+      CHECK_EQUAL(0U, router.message5_count);
+
+      producer.receive(message);
+
+      CHECK_EQUAL(1U, router.message5_count);
+
+      CHECK_EQUAL(1, bus.message_count);
+    }
+
+    //*************************************************************************
+    TEST(message_bus_accepts)
+    {
+      MessageBus<2> bus1;
+      MessageBus<2> bus2;
+
+      RouterA router1(ROUTER1);
+      RouterB router2(ROUTER2);
+      RouterC router3(ROUTER3);
+
+      bus1.subscribe(router1);
+      bus1.subscribe(router2);
+      bus1.set_successor(bus2);
+
+      bus2.subscribe(router3);
+
+      CHECK_TRUE(bus1.accepts(MESSAGE1));
+      CHECK_TRUE(bus1.accepts(MESSAGE2));
+      CHECK_TRUE(bus1.accepts(MESSAGE3));
+      CHECK_TRUE(bus1.accepts(MESSAGE4));
+      CHECK_TRUE(bus1.accepts(MESSAGE5));
+      CHECK_TRUE(bus1.accepts(MESSAGE6));
+      CHECK_FALSE(bus1.accepts(MESSAGE7));
     }
   };
 }

@@ -7,7 +7,7 @@ Embedded Template Library.
 https://github.com/ETLCPP/etl
 https://www.etlcpp.com
 
-Copyright(c) 2014 jwellbelove
+Copyright(c) 2014 John Wellbelove
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files(the "Software"), to deal
@@ -75,7 +75,7 @@ cog.outl("//********************************************************************
 
 namespace etl
 {
-#if ETL_CPP11_SUPPORTED && !defined(ETL_LARGEST_TYPE_FORCE_CPP03)
+#if ETL_USING_CPP11 && !defined(ETL_LARGEST_TYPE_FORCE_CPP03_IMPLEMENTATION)
   //***************************************************************************
   /// Template to determine the largest type and size.
   /// Defines 'value_type' which is the type of the largest parameter.
@@ -122,12 +122,12 @@ namespace etl
     };
   };
 
-#if ETL_CPP11_SUPPORTED
+#if ETL_USING_CPP11
   template <typename... T>
   using largest_type_t = typename largest_type<T...>::type;
 #endif
 
-#if ETL_CPP17_SUPPORTED
+#if ETL_USING_CPP17
   template <typename... T>
   constexpr size_t largest_type_v = largest_type<T...>::size;
 #endif
@@ -140,7 +140,7 @@ namespace etl
   cog.outl("/// Supports up to %s types." % NTypes)
   cog.outl("/// Defines 'value_type' which is the type of the largest parameter.")
   cog.outl("/// Defines 'size' which is the size of the largest parameter.")
-  cog.outl("///\ingroup largest")
+  cog.outl("///\\ingroup largest")
   cog.outl("//***************************************************************************")
   cog.out("template <typename T1, ")
   for n in range(2, int(NTypes)):
@@ -197,7 +197,7 @@ namespace etl
   /*[[[end]]]*/
 #endif
 
-#if ETL_CPP11_SUPPORTED && !defined(ETL_LARGEST_ALIGNMENT_FORCE_CPP03)
+#if ETL_USING_CPP11 && !defined(ETL_LARGEST_ALIGNMENT_FORCE_CPP03_IMPLEMENTATION)
   //***************************************************************************
   /// Template to determine the largest alignment.
   /// Defines <b>value</b> which is the largest alignment of all the parameters.
@@ -237,7 +237,7 @@ namespace etl
     };
   };
 
-#if ETL_CPP17_SUPPORTED
+#if ETL_USING_CPP17
   template <typename... T>
   inline constexpr size_t largest_alignment_v = largest_alignment<T...>::value;
 #endif
@@ -249,7 +249,7 @@ namespace etl
   cog.outl("/// Template to determine the largest alignment.")
   cog.outl("/// Supports up to %s types." % int(NTypes))
   cog.outl("/// Defines <b>value</b> which is the largest alignment of all the parameters.")
-  cog.outl("///\ingroup largest")
+  cog.outl("///\\ingroup largest")
   cog.outl("//***************************************************************************")
   cog.out("template <typename T1, ")
   for n in range(2, int(NTypes)):
@@ -309,7 +309,7 @@ namespace etl
   //***************************************************************************
   /// Defines a type that is as larger or larger than the specified type.
   /// Will return the specified type is there is not a larger type.
-  ///\ingroup largest
+  ///\\ingroup largest
   //***************************************************************************
   template <typename T>
   struct larger_int_type
@@ -319,7 +319,7 @@ namespace etl
     typedef typename etl::smallest_int_for_bits<etl::integral_limits<typename etl::make_signed<T>::type>::bits + 1>::type type;
   };
 
-#if ETL_CPP11_SUPPORTED
+#if ETL_USING_CPP11
   template <typename T>
   using larger_int_type_t = typename larger_int_type<T>::type;
 #endif
@@ -337,7 +337,7 @@ namespace etl
     typedef typename etl::smallest_uint_for_bits<etl::integral_limits<typename etl::make_unsigned<T>::type>::bits + 1>::type type;
   };
 
-#if ETL_CPP11_SUPPORTED
+#if ETL_USING_CPP11
   template <typename T>
   using larger_uint_type_t = typename larger_uint_type<T>::type;
 #endif
@@ -367,12 +367,12 @@ namespace etl
     typedef typename etl::smallest_int_for_bits<etl::integral_limits<T>::bits + 1>::type type;
   };
 
-#if ETL_CPP11_SUPPORTED
+#if ETL_USING_CPP11
   template <typename T>
   using larger_type_t = typename larger_type<T>::type;
 #endif
 
-#if ETL_CPP11_SUPPORTED && !defined(ETL_LARGEST_FORCE_CPP03)
+#if ETL_USING_CPP11 && !defined(ETL_LARGEST_FORCE_CPP03_IMPLEMENTATION)
   //***************************************************************************
   /// Template to determine the largest type, size and alignment.
   /// Defines <b>value</b> which is the largest type, size and alignment of all the parameters.
@@ -390,12 +390,12 @@ namespace etl
     };
   };
 
-#if ETL_CPP11_SUPPORTED
+#if ETL_USING_CPP11
     template <typename... T>
     using largest_t = typename largest<T...>::type;
 #endif
 
-#if ETL_CPP17_SUPPORTED
+#if ETL_USING_CPP17
     template <typename... T>
     inline constexpr size_t largest_size = largest<T...>::size;
 #endif
@@ -407,7 +407,7 @@ namespace etl
   cog.outl("/// Template to determine the largest type, size and alignment.")
   cog.outl("/// Supports up to %s types." % NTypes)
   cog.outl("/// Defines <b>value</b> which is the largest type, size and alignment of all the parameters.")
-  cog.outl("///\ingroup largest")
+  cog.outl("///\\ingroup largest")
   cog.outl("//***************************************************************************")
   cog.out("template <typename T1, ")
   for n in range(2, int(NTypes)):

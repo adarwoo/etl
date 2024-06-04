@@ -41,6 +41,8 @@ SOFTWARE.
 #include <ctype.h>
 #include <stdint.h>
 
+#include "private/minmax_push.h"
+
 namespace etl
 {
   //***************************************************************************
@@ -75,6 +77,17 @@ namespace etl
     }
   };
 
+#if ETL_USING_CPP20
+  template <>
+  struct whitespace<char8_t>
+  {
+    static ETL_CONSTEXPR const char8_t* value()
+    {
+      return u8" \t\n\r\f\v";
+    }
+  };
+#endif
+
   template <>
   struct whitespace<wchar_t>
   {
@@ -84,7 +97,7 @@ namespace etl
     }
   };
 
-#if ETL_CPP11_SUPPORTED
+#if ETL_USING_CPP11
   template <>
   struct whitespace<char16_t>
   {
@@ -104,7 +117,7 @@ namespace etl
   };
 #endif
 
-#if ETL_CPP17_SUPPORTED
+#if ETL_USING_CPP17
   template <typename TChar>
   inline constexpr const TChar* whitespace_v = whitespace<TChar>::value();
 #endif
@@ -212,7 +225,7 @@ namespace etl
 
   //***************************************************************************
   /// trim_whitespace_right
-  /// Trim firght of whitespace
+  /// Trim from right of whitespace
   //***************************************************************************
   template <typename TIString>
   void trim_whitespace_right(TIString& s)
@@ -832,5 +845,7 @@ namespace etl
     etl::transform(itr, s.end(), itr, ::tolower);
   }
 }
+
+#include "private/minmax_pop.h"
 
 #endif

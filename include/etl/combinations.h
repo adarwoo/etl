@@ -7,7 +7,7 @@ Embedded Template Library.
 https://github.com/ETLCPP/etl
 https://www.etlcpp.com
 
-Copyright(c) 2018 jwellbelove
+Copyright(c) 2018 John Wellbelove
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files(the "Software"), to deal
@@ -45,13 +45,16 @@ namespace etl
   ///\ingroup combinations
   /// Calculates combinations.
   //***************************************************************************
-  template <const size_t NV, const size_t KV>
+  template <size_t NV, size_t KV>
   struct combinations
   {
     static ETL_CONSTANT size_t value = etl::permutations<NV, KV>::value / etl::factorial<KV>::value;
   };
 
-#if ETL_CPP17_SUPPORTED
+  template <size_t NV, size_t KV>
+  ETL_CONSTANT size_t combinations<NV, KV>::value;
+
+#if ETL_USING_CPP17
   template <size_t NV, size_t KV>
   inline constexpr size_t combinations_v = combinations<NV, KV>::value;
 #endif

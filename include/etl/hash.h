@@ -7,7 +7,7 @@ Embedded Template Library.
 https://github.com/ETLCPP/etl
 https://www.etlcpp.com
 
-Copyright(c) 2014 jwellbelove
+Copyright(c) 2014 John Wellbelove
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files(the "Software"), to deal
@@ -31,18 +31,23 @@ SOFTWARE.
 #ifndef ETL_HASH_INCLUDED
 #define ETL_HASH_INCLUDED
 
-#include <stdint.h>
-#include <stdlib.h>
-
 #include "platform.h"
+
+#if ETL_USING_8BIT_TYPES
 
 // The default hash calculation.
 #include "fnv_1.h"
 #include "type_traits.h"
 #include "static_assert.h"
+#include "math.h"
+
+#include <stdint.h>
+#include <stdlib.h>
 
 ///\defgroup hash Standard hash calculations
 ///\ingroup maths
+
+#include "private/diagnostic_useless_cast_push.h"
 
 namespace etl
 {
@@ -84,13 +89,41 @@ namespace etl
       return fnv_1a_64(begin, end);
     }
 #endif
+
+    //*************************************************************************
+    /// Primary definition of base hash class, by default is poisoned
+    //*************************************************************************
+    template<typename T, bool IsEnum=false>
+    struct hash_base
+    {
+    private:
+      hash_base();                                  // Can't default construct
+      hash_base(const hash_base& other);            // Can't copy construct
+      hash_base& operator=(const hash_base& other); // Can't copy assign
+
+#if ETL_USING_CPP11
+      hash_base(hash_base&& other);            // Can't move construct
+      hash_base& operator=(hash_base&& other); // Can't move assign
+#endif
+    };
+
+    // Specialization for enums depends on definitions for integers, so it comes later
   }
 
+#if ETL_USING_CPP11
+  //***************************************************************************
+  /// Generic declaration for etl::hash, including default for enums
+  ///\ingroup hash
+  //***************************************************************************
+  template <typename T>
+  struct hash : private_hash::hash_base<T, etl::is_enum<T>::value>{};
+#else
   //***************************************************************************
   /// Generic declaration for etl::hash
   ///\ingroup hash
   //***************************************************************************
   template <typename T> struct hash;
+#endif
 
   //***************************************************************************
   /// Specialisation for bool.
@@ -159,11 +192,18 @@ namespace etl
   template<>
   struct hash<wchar_t>
   {
-    ETL_STATIC_ASSERT(sizeof(size_t) >= sizeof(wchar_t), "size_t smaller than type");
-
     size_t operator ()(wchar_t v) const
     {
-      return static_cast<size_t>(v);
+      // If it's the same size as a size_t.
+      if ETL_IF_CONSTEXPR(sizeof(size_t) >= sizeof(v))
+      {
+        return static_cast<size_t>(v);
+      }
+      else
+      {
+        uint8_t* p = reinterpret_cast<uint8_t*>(&v);
+        return private_hash::generic_hash<size_t>(p, p + sizeof(v));
+      }
     }
   };
 
@@ -174,11 +214,18 @@ namespace etl
   template<>
   struct hash<short>
   {
-    ETL_STATIC_ASSERT(sizeof(size_t) >= sizeof(short), "size_t smaller than type");
-
     size_t operator ()(short v) const
     {
-      return static_cast<size_t>(v);
+      // If it's the same size as a size_t.
+      if ETL_IF_CONSTEXPR(sizeof(size_t) >= sizeof(v))
+      {
+        return static_cast<size_t>(v);
+      }
+      else
+      {
+        uint8_t* p = reinterpret_cast<uint8_t*>(&v);
+        return private_hash::generic_hash<size_t>(p, p + sizeof(v));
+      }
     }
   };
 
@@ -189,11 +236,18 @@ namespace etl
   template<>
   struct hash<unsigned short>
   {
-    ETL_STATIC_ASSERT(sizeof(size_t) >= sizeof(unsigned short), "size_t smaller than type");
-
     size_t operator ()(unsigned short v) const
     {
-      return static_cast<size_t>(v);
+      // If it's the same size as a size_t.
+      if ETL_IF_CONSTEXPR(sizeof(size_t) >= sizeof(v))
+      {
+        return static_cast<size_t>(v);
+      }
+      else
+      {
+        uint8_t* p = reinterpret_cast<uint8_t*>(&v);
+        return private_hash::generic_hash<size_t>(p, p + sizeof(v));
+      }
     }
   };
 
@@ -204,11 +258,18 @@ namespace etl
   template<>
   struct hash<int>
   {
-    ETL_STATIC_ASSERT(sizeof(size_t) >= sizeof(int), "size_t smaller than type");
-
     size_t operator ()(int v) const
     {
-      return static_cast<size_t>(v);
+      // If it's the same size as a size_t.
+      if ETL_IF_CONSTEXPR(sizeof(size_t) >= sizeof(v))
+      {
+        return static_cast<size_t>(v);
+      }
+      else
+      {
+        uint8_t* p = reinterpret_cast<uint8_t*>(&v);
+        return private_hash::generic_hash<size_t>(p, p + sizeof(v));
+      }
     }
   };
 
@@ -219,11 +280,18 @@ namespace etl
   template<>
   struct hash<unsigned int>
   {
-    ETL_STATIC_ASSERT(sizeof(size_t) >= sizeof(unsigned int), "size_t smaller than type");
-
     size_t operator ()(unsigned int v) const
     {
-      return static_cast<size_t>(v);
+      // If it's the same size as a size_t.
+      if ETL_IF_CONSTEXPR(sizeof(size_t) >= sizeof(v))
+      {
+        return static_cast<size_t>(v);
+      }
+      else
+      {
+        uint8_t* p = reinterpret_cast<uint8_t*>(&v);
+        return private_hash::generic_hash<size_t>(p, p + sizeof(v));
+      }
     }
   };
 
@@ -237,7 +305,7 @@ namespace etl
     size_t operator ()(long v) const
     {
       // If it's the same size as a size_t.
-      if (sizeof(size_t) >= sizeof(v))
+      if ETL_IF_CONSTEXPR(sizeof(size_t) >= sizeof(v))
       {
         return static_cast<size_t>(v);
       }
@@ -259,7 +327,7 @@ namespace etl
     size_t operator ()(long long v) const
     {
       // If it's the same size as a size_t.
-      if (sizeof(size_t) >= sizeof(v))
+      if ETL_IF_CONSTEXPR(sizeof(size_t) >= sizeof(v))
       {
         return static_cast<size_t>(v);
       }
@@ -281,7 +349,7 @@ namespace etl
     size_t  operator ()(unsigned long v) const
     {
       // If it's the same size as a size_t.
-      if (sizeof(size_t) >= sizeof(v))
+      if ETL_IF_CONSTEXPR(sizeof(size_t) >= sizeof(v))
       {
         return static_cast<size_t>(v);
       }
@@ -303,7 +371,7 @@ namespace etl
     size_t  operator ()(unsigned long long v) const
     {
       // If it's the same size as a size_t.
-      if (sizeof(size_t) >= sizeof(v))
+      if ETL_IF_CONSTEXPR(sizeof(size_t) >= sizeof(v))
       {
         return static_cast<size_t>(v);
       }
@@ -325,7 +393,7 @@ namespace etl
     size_t operator ()(float v) const
     {
       // If it's the same size as a size_t.
-      if (sizeof(size_t) == sizeof(v))
+      if ETL_IF_CONSTEXPR(sizeof(size_t) == sizeof(v))
       {
         union
         {
@@ -333,6 +401,10 @@ namespace etl
           float  v;
         } u;
 
+        if (etl::is_zero(v))
+        { // -0.0 and 0.0 are represented differently at bit level
+          v = 0.0f;
+        }
         u.v = v;
 
         return u.s;
@@ -355,7 +427,7 @@ namespace etl
     size_t  operator ()(double v) const
     {
       // If it's the same size as a size_t.
-      if (sizeof(size_t) == sizeof(v))
+      if ETL_IF_CONSTEXPR(sizeof(size_t) == sizeof(v))
       {
         union
         {
@@ -363,6 +435,10 @@ namespace etl
           double v;
         } u;
 
+        if (etl::is_zero(v))
+        { // -0.0 and 0.0 are represented differently at bit level
+          v = 0.0;
+        }
         u.v = v;
 
         return u.s;
@@ -385,7 +461,7 @@ namespace etl
     size_t operator ()(long double v) const
     {
       // If it's the same size as a size_t.
-      if (sizeof(size_t) == sizeof(v))
+      if ETL_IF_CONSTEXPR(sizeof(size_t) == sizeof(v))
       {
         union
         {
@@ -393,6 +469,10 @@ namespace etl
           long double v;
         } u;
 
+        if (etl::is_zero(v))
+        { // -0.0 and 0.0 are represented differently at bit level
+          v = 0.0L;
+        }
         u.v = v;
 
         return u.s;
@@ -434,6 +514,32 @@ namespace etl
       }
     }
   };
+
+  namespace private_hash
+  {
+    //*************************************************************************
+    /// Specialization for enums
+    //*************************************************************************
+    template<typename T>
+    struct hash_base<T, true>
+    {
+      size_t operator()(T v) const
+      {
+        if (sizeof(size_t) >= sizeof(T))
+        {
+          return static_cast<size_t>(v);
+        }
+        else
+        {
+          return ::etl::hash<unsigned long long>()(static_cast<unsigned long long>(v));
+        }
+      }
+    };
+  }
 }
+
+#include "private/diagnostic_pop.h"
+
+#endif // ETL_USING_8BIT_TYPES
 
 #endif

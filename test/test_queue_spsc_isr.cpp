@@ -5,7 +5,7 @@ Embedded Template Library.
 https://github.com/ETLCPP/etl
 https://www.etlcpp.com
 
-Copyright(c) 2018 jwellbelove
+Copyright(c) 2018 John Wellbelove
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files(the "Software"), to deal
@@ -74,18 +74,18 @@ namespace
   struct Data
   {
     Data(int a_, int b_ = 2, int c_ = 3, int d_ = 4)
-      : a(a_),
-      b(b_),
-      c(c_),
-      d(d_)
+      : a(a_)
+      , b(b_)
+      , c(c_)
+      , d(d_)
     {
     }
 
     Data()
-      : a(0),
-      b(0),
-      c(0),
-      d(0)
+      : a(0)
+      , b(0)
+      , c(0)
+      , d(0)
     {
     }
 
@@ -454,19 +454,62 @@ namespace
     }
 
     //*************************************************************************
+    TEST(test_size_push_front_pop)
+    {
+      Access::clear();
+
+      etl::queue_spsc_isr<int, 4, Access> queue;
+
+      CHECK_EQUAL(0U, queue.size());
+
+      queue.push(1);
+      queue.push(2);
+      queue.push(3);
+      queue.push(4);
+      CHECK_EQUAL(4U, queue.size());
+
+      CHECK_EQUAL(1, queue.front());
+      CHECK_EQUAL(4U, queue.size());
+
+      CHECK_EQUAL(1, queue.front());
+      CHECK_EQUAL(4U, queue.size());
+
+      CHECK(queue.pop());
+      CHECK_EQUAL(3U, queue.size());
+
+      CHECK(queue.pop());
+      CHECK_EQUAL(2U, queue.size());
+
+      CHECK(queue.pop());
+      CHECK_EQUAL(1U, queue.size());
+
+      CHECK_EQUAL(4, queue.front());
+      CHECK_EQUAL(1U, queue.size());
+
+      CHECK_EQUAL(4, queue.front());
+      CHECK_EQUAL(1U, queue.size());
+
+      CHECK(queue.pop());
+      CHECK_EQUAL(0U, queue.size());
+    }
+
+    //*************************************************************************
     TEST(test_multiple_emplace)
     {
-      etl::queue_spsc_isr<Data, 4, Access> queue;
+      etl::queue_spsc_isr<Data, 5, Access> queue;
 
+      queue.emplace();
       queue.emplace(1);
       queue.emplace(1, 2);
       queue.emplace(1, 2, 3);
       queue.emplace(1, 2, 3, 4);
 
-      CHECK_EQUAL(4U, queue.size());
+      CHECK_EQUAL(5U, queue.size());
 
       Data popped;
 
+      queue.pop(popped);
+      CHECK(popped == Data(0, 0, 0, 0));
       queue.pop(popped);
       CHECK(popped == Data(1, 2, 3, 4));
       queue.pop(popped);

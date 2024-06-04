@@ -7,7 +7,7 @@ Embedded Template Library.
 https://github.com/ETLCPP/etl
 https://www.etlcpp.com
 
-Copyright(c) 2020 jwellbelove
+Copyright(c) 2020 John Wellbelove
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files(the "Software"), to deal
@@ -46,6 +46,7 @@ namespace etl
     typedef TFormat                          format_spec_type;
     typedef TIString                         istring_type;
     typedef typename TIString::value_type    value_type;
+    typedef typename TIString::pointer       pointer;
     typedef typename TIString::const_pointer const_pointer;
 
     //*************************************************************************
@@ -57,28 +58,28 @@ namespace etl
     }
 
     //*************************************************************************
-    /// Construct from text and format spec.
+    /// Construct from text and format fmt.
     //*************************************************************************
     basic_string_stream(TIString& text_, const TFormat& spec_)
       : text(text_)
-      , spec(spec_)
+      , format(spec_)
     {
     }
 
     //*************************************************************************
-    /// Set the format spec.
+    /// Set the format fmt.
     //*************************************************************************
     void set_format(const TFormat& spec_)
     {
-      spec = spec_;
+      format = spec_;
     }
 
     //*************************************************************************
-    /// Get a const reference to the format spec.
+    /// Get a const reference to the format fmt.
     //*************************************************************************
     const TFormat& get_format() const
     {
-      return spec;
+      return format;
     }
 
     //*************************************************************************
@@ -120,27 +121,27 @@ namespace etl
     //*********************************
     /// TFormat
     //*********************************
-    friend basic_string_stream& operator <<(basic_string_stream& ss, const TFormat& spec)
+    friend basic_string_stream& operator <<(basic_string_stream& ss, const TFormat& fmt)
     {
-      ss.spec = spec;
+      ss.format = fmt;
       return ss;
     }
 
     //*********************************
     /// etl::base_spec from etl::setbase, etl::bin, etl::oct, etl::dec & etl::hex stream manipulators
     //*********************************
-    friend basic_string_stream& operator <<(basic_string_stream& ss, etl::private_basic_format_spec::base_spec spec)
+    friend basic_string_stream& operator <<(basic_string_stream& ss, etl::private_basic_format_spec::base_spec fmt)
     {
-      ss.spec.base(spec.base);
+      ss.format.base(fmt.base);
       return ss;
     }
 
     //*********************************
     /// etl::width_spec from etl::setw stream manipulator
     //*********************************
-    friend basic_string_stream& operator <<(basic_string_stream& ss, etl::private_basic_format_spec::width_spec spec)
+    friend basic_string_stream& operator <<(basic_string_stream& ss, etl::private_basic_format_spec::width_spec fmt)
     {
-      ss.spec.width(spec.width);
+      ss.format.width(fmt.width);
       return ss;
     }
 
@@ -148,63 +149,63 @@ namespace etl
     /// etl::fill_spec from etl::setfill stream manipulator
     //*********************************
     template <typename TChar>
-    friend basic_string_stream& operator <<(basic_string_stream& ss, etl::private_basic_format_spec::fill_spec<TChar> spec)
+    friend basic_string_stream& operator <<(basic_string_stream& ss, etl::private_basic_format_spec::fill_spec<TChar> fmt)
     {
-      ss.spec.fill(spec.fill);
+      ss.format.fill(fmt.fill);
       return ss;
     }
 
     //*********************************
     /// etl::precision_spec from etl::setprecision stream manipulator
     //*********************************
-    friend basic_string_stream& operator <<(basic_string_stream& ss, etl::private_basic_format_spec::precision_spec spec)
+    friend basic_string_stream& operator <<(basic_string_stream& ss, etl::private_basic_format_spec::precision_spec fmt)
     {
-      ss.spec.precision(spec.precision);
+      ss.format.precision(fmt.precision);
       return ss;
     }
 
     //*********************************
     /// etl::boolalpha_spec from etl::boolalpha & etl::noboolalpha stream manipulators
     //*********************************
-    friend basic_string_stream& operator <<(basic_string_stream& ss, etl::private_basic_format_spec::boolalpha_spec spec)
+    friend basic_string_stream& operator <<(basic_string_stream& ss, etl::private_basic_format_spec::boolalpha_spec fmt)
     {
-      ss.spec.boolalpha(spec.boolalpha);
+      ss.format.boolalpha(fmt.boolalpha);
       return ss;
     }
 
     //*********************************
     /// etl::uppercase_spec from etl::uppercase & etl::nouppercase stream manipulators
     //*********************************
-    friend basic_string_stream& operator <<(basic_string_stream& ss, etl::private_basic_format_spec::uppercase_spec spec)
+    friend basic_string_stream& operator <<(basic_string_stream& ss, etl::private_basic_format_spec::uppercase_spec fmt)
     {
-      ss.spec.upper_case(spec.upper_case);
+      ss.format.upper_case(fmt.upper_case);
       return ss;
     }
 
     //*********************************
     /// etl::showbase_spec from etl::showbase & etl::noshowbase stream manipulators
     //*********************************
-    friend basic_string_stream& operator <<(basic_string_stream& ss, etl::private_basic_format_spec::showbase_spec spec)
+    friend basic_string_stream& operator <<(basic_string_stream& ss, etl::private_basic_format_spec::showbase_spec fmt)
     {
-      ss.spec.show_base(spec.show_base);
+      ss.format.show_base(fmt.show_base);
       return ss;
     }
 
     //*********************************
     /// etl::left_spec from etl::left stream manipulator
     //*********************************
-    friend basic_string_stream& operator <<(basic_string_stream& ss, etl::private_basic_format_spec::left_spec spec)
+    friend basic_string_stream& operator <<(basic_string_stream& ss, etl::private_basic_format_spec::left_spec /*fmt*/)
     {
-      ss.spec.left();
+      ss.format.left();
       return ss;
     }
 
     //*********************************
     /// etl::right_spec from etl::left stream manipulator
     //*********************************
-    friend basic_string_stream& operator <<(basic_string_stream& ss, etl::private_basic_format_spec::right_spec spec)
+    friend basic_string_stream& operator <<(basic_string_stream& ss, etl::private_basic_format_spec::right_spec /*fmt*/)
     {
-      ss.spec.right();
+      ss.format.right();
       return ss;
     }
 
@@ -213,12 +214,22 @@ namespace etl
     //*********************************
     friend basic_string_stream& operator <<(basic_string_stream& ss, TStringView view)
     {
-      etl::to_string(view, ss.text, ss.spec, true);
+      etl::to_string(view, ss.text, ss.format, true);
       return ss;
     }
 
     //*********************************
-    /// From a const pointer to a string
+    /// From a character pointer to a string
+    //*********************************
+    friend basic_string_stream& operator <<(basic_string_stream& ss, pointer p)
+    {
+      TStringView view(p);
+      ss << view;
+      return ss;
+    }
+
+    //*********************************
+    /// From a const character pointer to a string
     //*********************************
     friend basic_string_stream& operator <<(basic_string_stream& ss, const_pointer p)
     {
@@ -230,9 +241,9 @@ namespace etl
     //*********************************
     /// From a string interface
     //*********************************
-    friend basic_string_stream& operator <<(basic_string_stream& ss, const TIString& text)
+    friend basic_string_stream& operator <<(basic_string_stream& ss, const TIString& t)
     {
-      etl::to_string(text, ss.text, ss.spec, true);
+      etl::to_string(t, ss.text, ss.format, true);
       return ss;
     }
 
@@ -240,9 +251,9 @@ namespace etl
     /// From a string
     //*********************************
     template <template <size_t> class TString, size_t SIZE>
-    friend basic_string_stream& operator <<(basic_string_stream& ss, const TString<SIZE>& text)
+    friend basic_string_stream& operator <<(basic_string_stream& ss, const TString<SIZE>& t)
     {
-      const TIString& itext = text;
+      const TIString& itext = t;
       etl::to_string(itext, ss.str(), ss.get_format(), true);
       return ss;
     }
@@ -253,14 +264,14 @@ namespace etl
     template <typename T>
     friend basic_string_stream& operator <<(basic_string_stream& ss, const T& value)
     {
-      etl::to_string(value, ss.text, ss.spec, true);
+      etl::to_string(value, ss.text, ss.format, true);
       return ss;
     }
 
   private:
 
-    TIString&    text;
-    TFormat spec;
+    TIString& text;
+    TFormat   format;
 
     basic_string_stream(const basic_string_stream&) ETL_DELETE;
     basic_string_stream& operator =(const basic_string_stream&) ETL_DELETE;

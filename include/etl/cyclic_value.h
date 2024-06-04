@@ -7,7 +7,7 @@ Embedded Template Library.
 https://github.com/ETLCPP/etl
 https://www.etlcpp.com
 
-Copyright(c) 2014 jwellbelove
+Copyright(c) 2014 John Wellbelove
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files(the "Software"), to deal
@@ -31,8 +31,6 @@ SOFTWARE.
 #ifndef ETL_CYCLIC_VALUE_INCLUDED
 #define ETL_CYCLIC_VALUE_INCLUDED
 
-#include <stddef.h>
-
 ///\defgroup cyclic_value cyclic_value
 /// Provides a value that cycles between two limits.
 /// \ingroup utilities
@@ -42,54 +40,82 @@ SOFTWARE.
 #include "exception.h"
 #include "static_assert.h"
 #include "type_traits.h"
-
 #include "algorithm.h"
+
+#include <stddef.h>
 
 namespace etl
 {
   //***************************************************************************
   /// Provides a value that cycles between two limits.
+  //***************************************************************************
+  template <typename T, T First = 0, T Last = 0, bool EtlRuntimeSpecialisation = ((First == 0) && (Last == 0))>
+  class cyclic_value;
+
+  //***************************************************************************
+  /// Provides a value that cycles between two compile time limits.
   /// Supports incrementing and decrementing.
   ///\tparam T     The type of the variable.
-  ///\tparam FIRST The first value of the range.
-  ///\tparam LAST  The last value of the range.
+  ///\tparam First The first value of the range.
+  ///\tparam Last  The last value of the range.
   ///\ingroup cyclic_value
   //***************************************************************************
-  template <typename T, T FIRST = 0, T LAST = 0, typename = void>
-  class cyclic_value
+  template <typename T, T First, T Last>
+  class cyclic_value<T, First, Last, false>
   {
   public:
 
     //*************************************************************************
-    /// Constructor.
+    /// Default constructor.
     /// The initial value is set to the first value.
     //*************************************************************************
     cyclic_value()
-      : value(FIRST)
+      : value(First)
     {
+    }
+
+    //*************************************************************************
+    /// Constructor.
+    /// Set to an initial value.
+    /// Clamped to the range.
+    //*************************************************************************
+    explicit cyclic_value(T initial)
+    {
+      set(initial);
     }
 
     //*************************************************************************
     /// Copy constructor.
     //*************************************************************************
-    cyclic_value(const cyclic_value<T, FIRST, LAST>& other)
+    cyclic_value(const cyclic_value<T, First, Last>& other)
       : value(other.value)
     {
     }
 
     //*************************************************************************
+    /// Assignment operator.
+    //*************************************************************************
+    cyclic_value& operator =(const cyclic_value<T, First, Last>& other)
+    {
+      value = other.value;
+
+      return *this;
+    }
+
+    //*************************************************************************
     /// Sets the value.
+    /// Truncates to the First/Last range.
     ///\param value The value.
     //*************************************************************************
     void set(T value_)
     {
-      if (value_ > LAST)
+      if (value_ > Last)
       {
-        value_ = LAST;
+        value_ = Last;
       }
-      else if (value_ < FIRST)
+      else if (value_ < First)
       {
-        value_ = FIRST;
+        value_ = First;
       }
 
       value = value_;
@@ -100,7 +126,7 @@ namespace etl
     //*************************************************************************
     void to_first()
     {
-      value = FIRST;
+      value = First;
     }
 
     //*************************************************************************
@@ -108,7 +134,7 @@ namespace etl
     //*************************************************************************
     void to_last()
     {
-      value = LAST;
+      value = Last;
     }
 
     //*************************************************************************
@@ -156,9 +182,9 @@ namespace etl
     //*************************************************************************
     cyclic_value& operator ++()
     {
-      if (value >= LAST)
+      if (value >= Last) ETL_UNLIKELY
       {
-        value = FIRST;
+        value = First;
       }
       else
       {
@@ -185,9 +211,9 @@ namespace etl
     //*************************************************************************
     cyclic_value& operator --()
     {
-      if (value <= FIRST)
+      if (value <= First) ETL_UNLIKELY
       {
-        value = LAST;
+        value = Last;
       }
       else
       {
@@ -239,23 +265,23 @@ namespace etl
     //*************************************************************************
     /// Gets the first value.
     //*************************************************************************
-    const T first() const
+    static ETL_CONSTEXPR T first()
     {
-      return FIRST;
+      return First;
     }
 
     //*************************************************************************
     /// Gets the last value.
     //*************************************************************************
-    const T last() const
+    static ETL_CONSTEXPR T last()
     {
-      return LAST;
+      return Last;
     }
 
     //*************************************************************************
     /// Swaps the values.
     //*************************************************************************
-    void swap(cyclic_value<T, FIRST, LAST>& other)
+    void swap(cyclic_value<T, First, Last>& other)
     {
       using ETL_OR_STD::swap; // Allow ADL
 
@@ -265,7 +291,7 @@ namespace etl
     //*************************************************************************
     /// Swaps the values.
     //*************************************************************************
-    friend void swap(cyclic_value<T, FIRST, LAST>& lhs, cyclic_value<T, FIRST, LAST>& rhs)
+    friend void swap(cyclic_value<T, First, Last>& lhs, cyclic_value<T, First, Last>& rhs)
     {
       lhs.swap(rhs);
     }
@@ -273,7 +299,7 @@ namespace etl
     //*************************************************************************
     /// Operator ==.
     //*************************************************************************
-    friend bool operator == (const cyclic_value<T, FIRST, LAST>& lhs, const cyclic_value<T, FIRST, LAST>& rhs)
+    friend bool operator == (const cyclic_value<T, First, Last>& lhs, const cyclic_value<T, First, Last>& rhs)
     {
       return lhs.value == rhs.value;
     }
@@ -281,7 +307,7 @@ namespace etl
     //*************************************************************************
     /// Operator !=.
     //*************************************************************************
-    friend bool operator != (const cyclic_value<T, FIRST, LAST>& lhs, const cyclic_value<T, FIRST, LAST>& rhs)
+    friend bool operator != (const cyclic_value<T, First, Last>& lhs, const cyclic_value<T, First, Last>& rhs)
     {
       return !(lhs == rhs);
     }
@@ -292,15 +318,15 @@ namespace etl
   };
 
   //***************************************************************************
-  /// Provides a value that cycles between two limits.
+  /// Provides a value that cycles between two run time limits.
   /// Supports incrementing and decrementing.
   ///\tparam T     The type of the variable.
-  ///\tparam FIRST The first value of the range.
-  ///\tparam LAST  The last value of the range.
+  ///\tparam First The first value of the range.
+  ///\tparam Last  The last value of the range.
   ///\ingroup cyclic_value
   //***************************************************************************
-  template <typename T, const T FIRST, const T LAST>
-  class cyclic_value<T, FIRST, LAST, typename etl::enable_if<(FIRST == 0) && (LAST == 0)>::type>
+  template <typename T, T First, T Last>
+  class cyclic_value<T, First, Last, true>
   {
   public:
 
@@ -310,9 +336,9 @@ namespace etl
     /// The initial value is set to the first value.
     //*************************************************************************
     cyclic_value()
-      : value(FIRST),
-        first_value(FIRST),
-        last_value(LAST)
+      : value(First)
+      , first_value(First)
+      , last_value(Last)
     {
     }
 
@@ -323,19 +349,33 @@ namespace etl
     ///\param last  The last value in the range.
     //*************************************************************************
     cyclic_value(T first_, T last_)
-      : value(first_),
-        first_value(first_),
-        last_value(last_)
+      : value(first_)
+      , first_value(first_)
+      , last_value(last_) 
     {
+    }
+
+    //*************************************************************************
+    /// Constructor.
+    /// Set to an initial value.
+    /// Clamped to the range.
+    ///\param first The first value in the range.
+    ///\param last  The last value in the range.
+    //*************************************************************************
+    cyclic_value(T first_, T last_, T initial)
+      : first_value(first_)
+      , last_value(last_)
+    {
+      set(initial);
     }
 
     //*************************************************************************
     /// Copy constructor.
     //*************************************************************************
     cyclic_value(const cyclic_value& other)
-      : value(other.value),
-        first_value(other.first_value),
-        last_value(other.last_value)
+      : value(other.value)
+      , first_value(other.first_value)
+      , last_value(other.last_value)
     {
     }
 
@@ -531,7 +571,7 @@ namespace etl
     //*************************************************************************
     /// Swaps the values.
     //*************************************************************************
-    void swap(cyclic_value<T, FIRST, LAST>& other)
+    void swap(cyclic_value<T, First, Last>& other)
     {
       using ETL_OR_STD::swap; // Allow ADL
 
@@ -543,7 +583,7 @@ namespace etl
     //*************************************************************************
     /// Swaps the values.
     //*************************************************************************
-    friend void swap(cyclic_value<T, FIRST, LAST>& lhs, cyclic_value<T, FIRST, LAST>& rhs)
+    friend void swap(cyclic_value<T, First, Last>& lhs, cyclic_value<T, First, Last>& rhs)
     {
       lhs.swap(rhs);
     }
@@ -551,7 +591,7 @@ namespace etl
     //*************************************************************************
     /// Operator ==.
     //*************************************************************************
-    friend bool operator == (const cyclic_value<T, FIRST, LAST>& lhs, const cyclic_value<T, FIRST, LAST>& rhs)
+    friend bool operator == (const cyclic_value<T, First, Last>& lhs, const cyclic_value<T, First, Last>& rhs)
     {
       return (lhs.value       == rhs.value) &&
              (lhs.first_value == rhs.first_value) &&
@@ -561,7 +601,7 @@ namespace etl
     //*************************************************************************
     /// Operator !=.
     //*************************************************************************
-    friend bool operator != (const cyclic_value<T, FIRST, LAST>& lhs, const cyclic_value<T, FIRST, LAST>& rhs)
+    friend bool operator != (const cyclic_value<T, First, Last>& lhs, const cyclic_value<T, First, Last>& rhs)
     {
       return !(lhs == rhs);
     }

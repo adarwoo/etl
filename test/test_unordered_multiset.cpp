@@ -5,7 +5,7 @@ Embedded Template Library.
 https://github.com/ETLCPP/etl
 https://www.etlcpp.com
 
-Copyright(c) 2016 jwellbelove
+Copyright(c) 2016 John Wellbelove
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files(the "Software"), to deal
@@ -36,6 +36,7 @@ SOFTWARE.
 #include <string>
 #include <vector>
 #include <numeric>
+#include <unordered_set>
 
 #include "data.h"
 
@@ -63,6 +64,77 @@ namespace etl
 
 namespace
 {
+  //***************************************************************************
+  struct CustomHashFunction
+  {
+    CustomHashFunction()
+      : id(0)
+    {
+    }
+
+    CustomHashFunction(int id_)
+      : id(id_)
+    {
+    }
+
+    size_t operator ()(uint32_t e) const
+    {
+      return size_t(e);
+    }
+
+    int id;
+  };
+
+  //***************************************************************************
+  struct CustomKeyEq
+  {
+    CustomKeyEq()
+      : id(0)
+    {
+    }
+
+    CustomKeyEq(int id_)
+      : id(id_)
+    {
+    }
+
+    size_t operator ()(uint32_t lhs, uint32_t rhs) const
+    {
+      return (lhs == rhs);
+    }
+
+    int id;
+  };
+
+  //*************************************************************************
+  // Hasher whose hash behaviour depends on provided data.
+  struct parameterized_hash
+  {
+    size_t modulus;
+
+    parameterized_hash(size_t modulus_ = 2) : modulus(modulus_){}
+
+    size_t operator()(size_t val) const
+    {
+      return val % modulus;
+    }
+  };
+
+  //*************************************************************************
+  // Equality checker whose behaviour depends on provided data.
+  struct parameterized_equal
+  {
+    size_t modulus;
+
+    // Hasher whose hash behaviour depends on provided data.
+    parameterized_equal(size_t modulus_ = 2) : modulus(modulus_){}
+
+    bool operator()(size_t lhs, size_t rhs) const
+    {
+      return (lhs % modulus) == (rhs % modulus);
+    }
+  };
+
   SUITE(test_unordered_multiset)
   {
     static const size_t SIZE = 10;
@@ -162,9 +234,9 @@ namespace
       CHECK(data.begin() == data.end());
     }
 
-#if ETL_USING_STL && !defined(ETL_TEMPLATE_DEDUCTION_GUIDE_TESTS_DISABLED)
+#if ETL_USING_CPP17 && ETL_HAS_INITIALIZER_LIST && !defined(ETL_TEMPLATE_DEDUCTION_GUIDE_TESTS_DISABLED)
     //*************************************************************************
-    TEST(test_cpp17_deduced_constructor)
+    TEST_FIXTURE(SetupFixture, test_cpp17_deduced_constructor)
     {
       etl::unordered_multiset data{ N0, N1, N2, N3, N4, N5, N6, N7, N8, N9 };
       etl::unordered_multiset<NDC, 10U> check = { N0, N1, N2, N3, N4, N5, N6, N7, N8, N9 };
@@ -208,14 +280,19 @@ namespace
 
       CHECK(!data1.empty()); // Move does not clear the source.
 
-      CHECK_EQUAL(1, ItemM(1).value);
-      CHECK_EQUAL(2, ItemM(2).value);
-      CHECK_EQUAL(3, ItemM(3).value);
-      CHECK_EQUAL(4, ItemM(4).value);
+      CHECK(data2.find(ItemM(1)) != data2.end());
+      CHECK(data2.find(ItemM(2)) != data2.end());
+      CHECK(data2.find(ItemM(3)) != data2.end());
+      CHECK(data2.find(ItemM(4)) != data2.end());
+
+      CHECK(data2.find(ItemM(1))->valid);
+      CHECK(data2.find(ItemM(2))->valid);
+      CHECK(data2.find(ItemM(3))->valid);
+      CHECK(data2.find(ItemM(4))->valid);
     }
 
     //*************************************************************************
-    TEST(test_destruct_via_iunordered_multiset)
+    TEST_FIXTURE(SetupFixture, test_destruct_via_iunordered_multiset)
     {
       int current_count = NDC::get_instance_count();
 
@@ -235,11 +312,7 @@ namespace
 
       other_data = data;
 
-      bool isEqual = std::equal(data.begin(),
-                                data.end(),
-                                other_data.begin());
-
-      CHECK(isEqual);
+      CHECK(data == other_data);
     }
 
     //*************************************************************************
@@ -253,11 +326,7 @@ namespace
 
       idata2 = idata1;
 
-      bool isEqual = std::equal(data1.begin(),
-                                data1.end(),
-                                data2.begin());
-
-      CHECK(isEqual);
+      CHECK(data1 == data2);
     }
 
     //*************************************************************************
@@ -266,13 +335,11 @@ namespace
       DataNDC data(initial_data.begin(), initial_data.end());
       DataNDC other_data(data);
 
+#include "etl/private/diagnostic_self_assign_overloaded_push.h"
       other_data = other_data;
+#include "etl/private/diagnostic_pop.h"
 
-      bool isEqual = std::equal(data.begin(),
-                                data.end(),
-                                other_data.begin());
-
-      CHECK(isEqual);
+      CHECK(data == other_data);
     }
 
     //*************************************************************************
@@ -290,15 +357,11 @@ namespace
       data1.insert(ItemM(4));
 
       DataM data2;
+      data2.insert(ItemM(5));
 
       data2 = std::move(data1);
 
       CHECK(!data1.empty()); // Move does not clear the source.
-
-      CHECK_EQUAL(1, ItemM(1).value);
-      CHECK_EQUAL(2, ItemM(2).value);
-      CHECK_EQUAL(3, ItemM(3).value);
-      CHECK_EQUAL(4, ItemM(4).value);
     }
 
     //*************************************************************************
@@ -443,7 +506,27 @@ namespace
     }
 
     //*************************************************************************
-    TEST_FIXTURE(SetupFixture, test_erase_single)
+    TEST_FIXTURE(SetupFixture, test_erase_single_iterator)
+    {
+      DataNDC data(initial_data.begin(), initial_data.end());
+
+      DataNDC::iterator idata = data.find(N5);
+      DataNDC::iterator inext = idata;
+      ++inext;
+
+      DataNDC::iterator iafter = data.erase(idata);
+      idata = data.find(N5);
+
+      CHECK(idata == data.end());
+      CHECK(inext == iafter);
+
+      // Test that erase really does erase from the pool.
+      CHECK(!data.full());
+      CHECK(!data.empty());
+    }
+
+    //*************************************************************************
+    TEST_FIXTURE(SetupFixture, test_erase_single_cont_iterator)
     {
       DataNDC data(initial_data.begin(), initial_data.end());
 
@@ -454,7 +537,7 @@ namespace
       DataNDC::const_iterator iafter = data.erase(idata);
       idata = data.find(N5);
 
-      CHECK(idata == data.end());
+      CHECK(idata == data.cend());
       CHECK(inext == iafter);
 
       // Test that erase really does erase from the pool.
@@ -467,10 +550,10 @@ namespace
     {
       DataNDC data(initial_data.begin(), initial_data.end());
 
-      DataNDC::iterator idata = data.begin();
+      DataNDC::const_iterator idata = data.cbegin();
       std::advance(idata, 2);
 
-      DataNDC::iterator idata_end = data.begin();
+      DataNDC::const_iterator idata_end = data.cbegin();
       std::advance(idata_end, 5);
 
       data.erase(idata, idata_end);
@@ -518,10 +601,10 @@ namespace
     {
       DataNDC data(initial_data.begin(), initial_data.end());
 
-      DataNDC::iterator end = data.begin();
+      DataNDC::const_iterator end = data.cbegin();
       etl::advance(end, data.size() / 2);
 
-      auto itr = data.erase(data.begin(), end);
+      auto itr = data.erase(data.cbegin(), end);
 
       CHECK_EQUAL(initial_data.size() / 2, data.size());
       CHECK(!data.full());
@@ -534,10 +617,10 @@ namespace
     {
       DataNDC data(initial_data.begin(), initial_data.end());
 
-      DataNDC::iterator begin = data.begin();
+      DataNDC::const_iterator begin = data.cbegin();
       etl::advance(begin, data.size() / 2);
 
-      auto itr = data.erase(begin, data.end());
+      auto itr = data.erase(begin, data.cend());
 
       CHECK_EQUAL(initial_data.size() / 2, data.size());
       CHECK(!data.full());
@@ -550,14 +633,13 @@ namespace
     {
       DataNDC data(initial_data.begin(), initial_data.end());
 
-      auto itr = data.erase(data.begin(), data.end());
+      auto itr = data.erase(data.cbegin(), data.cend());
 
       CHECK_EQUAL(0U, data.size());
       CHECK(!data.full());
       CHECK(data.empty());
       CHECK(itr == data.end());
     }
-
 
     //*************************************************************************
     TEST_FIXTURE(SetupFixture, test_clear)
@@ -705,6 +787,161 @@ namespace
       data.clear();
       data.assign(initial_data.begin(), initial_data.end());
       CHECK_CLOSE(2.0, data.load_factor(), 0.01);
+    }
+
+    //*************************************************************************
+    TEST(test_equality_comparison_fails_when_hash_collisions_occur_582)
+    {
+      struct bad_hash
+      {
+        // Force hash collisions
+        size_t operator()(int key) const
+        {
+          return key % 4;
+        }
+      };
+
+      std::vector<int> random_keys1 = { 17, 14, 3,  7, 2, 6, 9,  3, 18, 10,  8, 11,  4, 1, 12, 15, 16,  0,  5, 19 };
+      std::vector<int> random_keys2 = { 3,  6, 5, 17, 2, 7, 3, 19,  8, 15, 14,  0, 18, 4, 10,  9, 16, 11, 12,  1 };
+
+      // Check that the input data is valid.
+      CHECK_EQUAL(random_keys1.size(), random_keys2.size());
+      CHECK(std::is_permutation(random_keys1.begin(), random_keys1.end(), random_keys2.begin()));
+
+      //***************************************************
+      // Fill ETL
+      etl::unordered_multiset<int, 20, 20, bad_hash> etlset1;
+      etl::unordered_multiset<int, 20, 20, bad_hash> etlset2;
+
+      for (auto i : random_keys1)
+      {
+        etlset1.insert(i);
+      }
+
+      for (auto i : random_keys2)
+      {
+        etlset2.insert(i);
+      }
+
+      //***************************************************
+      // Fill STD
+      std::unordered_multiset<int, bad_hash> stdset1;
+      std::unordered_multiset<int, bad_hash> stdset2;
+
+      for (auto i : random_keys1)
+      {
+        stdset1.insert(i);
+      }
+
+      for (auto i : random_keys2)
+      {
+        stdset2.insert(i);
+      }
+
+      //***************************************************
+      CHECK_EQUAL((stdset1 == stdset2), (etlset1 == etlset2));
+    }
+
+    //*************************************************************************
+    TEST(test_copying_of_hash_and_key_compare_with_copy_construct)
+    {
+      CustomHashFunction chf(1);
+      CustomKeyEq        ceq(2);
+
+      etl::unordered_multiset<uint32_t, 5, 5, CustomHashFunction, CustomKeyEq> set1(chf, ceq);
+      etl::unordered_multiset<uint32_t, 5, 5, CustomHashFunction, CustomKeyEq> set2(set1);
+
+      CHECK_EQUAL(chf.id, set2.hash_function().id);
+      CHECK_EQUAL(ceq.id, set2.key_eq().id);
+    }
+
+    //*************************************************************************
+    TEST(test_copying_of_hash_and_key_compare_with_assignment)
+    {
+      CustomHashFunction chf1(1);
+      CustomKeyEq        ceq2(2);
+
+      CustomHashFunction chf3(3);
+      CustomKeyEq        ceq4(4);
+
+      etl::unordered_multiset<uint32_t, 5, 5, CustomHashFunction, CustomKeyEq> set1(chf1, ceq2);
+      etl::unordered_multiset<uint32_t, 5, 5, CustomHashFunction, CustomKeyEq> set2(chf3, ceq4);
+
+      set2.operator=(set1);
+
+      CHECK_EQUAL(chf1.id, set2.hash_function().id);
+      CHECK_EQUAL(ceq2.id, set2.key_eq().id);
+    }
+
+    //*************************************************************************
+    TEST(test_copying_of_hash_and_key_compare_with_construction_from_iterators)
+    {
+      CustomHashFunction chf1(1);
+      CustomKeyEq        ceq2(2);
+
+      std::array<uint32_t, 5> data = { 1, 2, 3, 4, 5 };
+
+      etl::unordered_multiset<uint32_t, 5, 5, CustomHashFunction, CustomKeyEq> set1(data.begin(), data.end(), chf1, ceq2);
+
+      CHECK_EQUAL(chf1.id, set1.hash_function().id);
+      CHECK_EQUAL(ceq2.id, set1.key_eq().id);
+    }
+
+    //*************************************************************************
+    TEST(test_copying_of_hash_and_key_compare_with_construction_from_initializer_list)
+    {
+      CustomHashFunction chf1(1);
+      CustomKeyEq        ceq2(2);
+
+      etl::unordered_multiset<uint32_t, 5, 5, CustomHashFunction, CustomKeyEq> set1({ 1, 2, 3, 4, 5 }, chf1, ceq2);
+
+      CHECK_EQUAL(chf1.id, set1.hash_function().id);
+      CHECK_EQUAL(ceq2.id, set1.key_eq().id);
+    }
+
+    //*************************************************************************
+    TEST(test_iterator_value_types_bug_584)
+    {
+      using Set = etl::unordered_multiset<int, 1, 1>;
+      CHECK((!std::is_same<typename Set::const_iterator::value_type, typename Set::iterator::value_type>::value));
+    }
+
+    TEST(test_parameterized_eq)
+    {
+      constexpr std::size_t MODULO = 4;
+      parameterized_hash hash{MODULO};
+      parameterized_equal eq{MODULO};
+      // values are equal modulo 4
+      etl::unordered_multiset<std::size_t, 10, 10, parameterized_hash, parameterized_equal> set;
+      set.insert(2);
+      set.insert(6);
+      set.insert(10);
+
+      const auto& constset = set;
+
+      CHECK_EQUAL(constset.count(6), 3);
+      {
+        auto range = set.equal_range(6);
+        CHECK_EQUAL(std::distance(range.first, range.second), 3);
+      }
+      {
+        auto range = constset.equal_range(6);
+        CHECK_EQUAL(std::distance(range.first, range.second), 3);
+      }
+    }
+
+    //*************************************************************************
+    TEST(test_iterator_value_types_bug_803)
+    {
+      using Set1 = etl::unordered_multiset<NDC, SIZE, 5>;
+      using Set2 = etl::unordered_multiset<NDC, 2 * SIZE, 10>;
+
+      Set1 set1(initial_data.begin(), initial_data.end());
+      Set2 set2a(initial_data.begin(), initial_data.end());
+      Set2 set2b(different_data.begin(), different_data.end());
+
+      CHECK_TRUE(set1 == set2a);
+      CHECK_FALSE(set1 == set2b);
     }
   };
 }

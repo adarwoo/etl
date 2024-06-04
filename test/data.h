@@ -5,7 +5,7 @@ Embedded Template Library.
 https://github.com/ETLCPP/etl
 https://www.etlcpp.com
 
-Copyright(c) 2014 jwellbelove
+Copyright(c) 2014 John Wellbelove
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files(the "Software"), to deal
@@ -80,7 +80,9 @@ public:
 
   static bool are_identical(const TestDataDC& lhs, const TestDataDC& rhs)
   {
+#include "etl/private/diagnostic_float_equal_push.h"
     return (lhs.value == rhs.value) && (lhs.index == rhs.index);
+#include "etl/private/diagnostic_pop.h"
   }
 
   T   value;
@@ -90,13 +92,17 @@ public:
 template <typename T>
 bool operator == (const TestDataDC<T>& lhs, const TestDataDC<T>& rhs)
 {
+#include "etl/private/diagnostic_float_equal_push.h"
   return lhs.value == rhs.value;
+#include "etl/private/diagnostic_pop.h"
 }
 
 template <typename T>
 bool operator != (const TestDataDC<T>& lhs, const TestDataDC<T>& rhs)
 {
+#include "etl/private/diagnostic_float_equal_push.h"
   return lhs.value != rhs.value;
+#include "etl/private/diagnostic_pop.h"
 }
 
 template <typename T>
@@ -123,6 +129,9 @@ public:
   {
   }
 
+  TestDataNDC(const TestDataNDC&) = default;
+  TestDataNDC& operator =(const TestDataNDC&) = default;
+
   bool operator < (const TestDataNDC& other) const
   {
     return value < other.value;
@@ -145,7 +154,9 @@ public:
 
   static bool are_identical(const TestDataNDC& lhs, const TestDataNDC& rhs)
   {
+#include "etl/private/diagnostic_float_equal_push.h"
     return (lhs.value == rhs.value) && (lhs.index == rhs.index);
+#include "etl/private/diagnostic_pop.h"
   }
 
   T value;
@@ -185,16 +196,22 @@ public:
   {
   }
 
-  TestDataM(TestDataM&& other) noexcept
-    : value(other.value)
+  explicit TestDataM(T&& value_)
+    : value(std::move(value_))
     , valid(true)
   {
-    other.value = std::move(T());
+  }
+
+  TestDataM(TestDataM&& other) noexcept
+    : value(std::move(other.value))
+    , valid(true)
+  {
     other.valid = false;
   }
 
   virtual ~TestDataM()
   {
+    valid = false;
   }
 
   TestDataM& operator =(TestDataM&& other) noexcept
@@ -202,7 +219,6 @@ public:
     value = std::move(other.value);
     valid = true;
 
-    other.value = T();
     other.valid = false;
 
     return *this;
@@ -245,13 +261,17 @@ private:
 template <typename T>
 bool operator == (const TestDataM<T>& lhs, const TestDataM<T>& rhs)
 {
+#include "etl/private/diagnostic_float_equal_push.h"
   return lhs.value == rhs.value;
+#include "etl/private/diagnostic_pop.h"
 }
 
 template <typename T>
 bool operator != (const TestDataM<T>& lhs, const TestDataM<T>& rhs)
 {
+#include "etl/private/diagnostic_float_equal_push.h"
   return lhs.value != rhs.value;
+#include "etl/private/diagnostic_pop.h"
 }
 
 template <typename T>

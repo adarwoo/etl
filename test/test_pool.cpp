@@ -5,7 +5,7 @@ Embedded Template Library.
 https://github.com/ETLCPP/etl
 https://www.etlcpp.com
 
-Copyright(c) 2014 jwellbelove
+Copyright(c) 2014 John Wellbelove
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files(the "Software"), to deal
@@ -36,11 +36,6 @@ SOFTWARE.
 
 #include "etl/pool.h"
 #include "etl/largest.h"
-
-#if defined(ETL_COMPILER_GCC)
-  #pragma GCC diagnostic push
-  #pragma GCC diagnostic ignored "-Wunused-but-set-variable"
-#endif
 
 typedef TestDataDC<std::string>  Test_Data;
 typedef TestDataNDC<std::string> Test_Data2;
@@ -204,6 +199,9 @@ namespace
 
       CHECK_EQUAL(4U, pool.available());
 
+      CHECK_THROW(pool.release(p4), etl::pool_no_allocation);
+      CHECK_EQUAL(4U, pool.available());
+
       Test_Data not_in_pool;
 
       CHECK_THROW(pool.release(&not_in_pool), etl::pool_object_not_in_pool);
@@ -267,6 +265,7 @@ namespace
       CHECK_EQUAL(4U, pool.available());
 
       Test_Data* p;
+      (void)p;
 
       p = pool.allocate();
       CHECK_EQUAL(3U, pool.available());
@@ -296,6 +295,7 @@ namespace
       CHECK_EQUAL(0U, pool.size());
 
       Test_Data* p;
+      (void)p;
 
       p = pool.allocate();
       CHECK_EQUAL(1U, pool.size());
@@ -318,6 +318,7 @@ namespace
       CHECK(!pool.full());
 
       Test_Data* p;
+      (void)p;
 
       p = pool.allocate();
       CHECK(!pool.empty());
@@ -351,7 +352,7 @@ namespace
     //*************************************************************************
     TEST(test_type_error)
     {
-      struct Test
+      struct Object
       {
         uint64_t a;
         uint64_t b;
@@ -361,7 +362,7 @@ namespace
 
       etl::ipool& ip = pool;
 
-      CHECK_THROW(ip.allocate<Test>(), etl::pool_element_size);
+      CHECK_THROW(ip.allocate<Object>(), etl::pool_element_size);
     }
 
     //*************************************************************************
@@ -375,6 +376,11 @@ namespace
       uint32_t*  p2 = nullptr;
       double*    p3 = nullptr;
       Test_Data* p4 = nullptr;
+
+      (void)p1;
+      (void)p2;
+      (void)p3;
+      (void)p4;
 
       CHECK_NO_THROW(p1 = pool.allocate<uint8_t>());
       CHECK_NO_THROW(p2 = pool.allocate<uint32_t>());
@@ -471,7 +477,3 @@ namespace
     CHECK_EQUAL(0, memPool.size());
   }
 }
-
-#if defined(ETL_COMPILER_GCC)
-  #pragma GCC diagnostic pop
-#endif

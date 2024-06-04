@@ -5,7 +5,7 @@ Embedded Template Library.
 https://github.com/ETLCPP/etl
 https://www.etlcpp.com
 
-Copyright(c) 2017 jwellbelove
+Copyright(c) 2017 John Wellbelove
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files(the "Software"), to deal
@@ -39,8 +39,10 @@ SOFTWARE.
 #include <iterator>
 #include <numeric>
 #include <stdint.h>
-
 #include <vector>
+
+#include <memory>
+
 
 namespace
 {
@@ -90,7 +92,7 @@ namespace
     {
     }
 
-    void operator()(T* p) const
+    void operator()(T*) const
     {
     }
   };
@@ -104,7 +106,7 @@ namespace
     }
 
     template <class U>
-    void operator()(U* p) const
+    void operator()(U* /*p*/) const
     {
     }
   };
@@ -225,6 +227,32 @@ namespace
       CHECK_EQUAL(1U, count);
       etl::destroy_at(pn, count);
       CHECK_EQUAL(0U, count);
+    }
+
+    //*************************************************************************
+    TEST(test_construct_destroy_trivial)
+    {
+      char n[sizeof(trivial_t)];
+      trivial_t* pn = reinterpret_cast<trivial_t*>(n);
+
+      // Non count.
+      std::fill(std::begin(n), std::end(n), 0xFFU);
+      etl::construct_at(pn);
+      CHECK_EQUAL(0UL, *pn);
+      etl::destroy_at(pn);
+      CHECK_EQUAL(0UL, *pn);
+
+      std::fill(std::begin(n), std::end(n), 0xFFU);
+      etl::construct_at(pn);
+      CHECK_EQUAL(0x00000000UL, *pn);
+      etl::destroy_at(pn);
+      CHECK_EQUAL(0x00000000UL, *pn);
+
+      std::fill(std::begin(n), std::end(n), 0xFFU);
+      etl::construct_at(pn, test_item_trivial);
+      CHECK_EQUAL(test_item_trivial, *pn);
+      etl::destroy_at(pn);
+      CHECK_EQUAL(test_item_trivial, *pn);
     }
 
     //*************************************************************************
@@ -612,25 +640,25 @@ namespace
     //*************************************************************************
     TEST(test_create_copy)
     {
-      struct Test : etl::create_copy<Test>
+      struct Object : etl::create_copy<Object>
       {
         std::string text;
       };
 
-      char buffer[sizeof(Test)];
+      char buffer[sizeof(Object)];
 
-      Test test1;
-      test1.text = "12345678";
-      test1.create_copy_at(buffer);
-      test1.text = "87654321";
+      Object object1;
+      object1.text = "12345678";
+      object1.create_copy_at(buffer);
+      object1.text = "87654321";
 
-      Test& test2 = *reinterpret_cast<Test*>(buffer);
+      Object& object2 = *reinterpret_cast<Object*>(buffer);
 
-      CHECK_EQUAL(std::string("87654321"), test1.text);
-      CHECK_EQUAL(std::string("12345678"), test2.text);
+      CHECK_EQUAL(std::string("87654321"), object1.text);
+      CHECK_EQUAL(std::string("12345678"), object2.text);
 
       int count = 0;
-      test1.create_copy_at(buffer, count);
+      object1.create_copy_at(buffer, count);
 
       CHECK_EQUAL(1, count);
     }
@@ -638,23 +666,23 @@ namespace
     //*************************************************************************
     TEST(test_create_make_copy)
     {
-      struct Test : etl::create_copy<Test>
+      struct Object : etl::create_copy<Object>
       {
         std::string text;
       };
 
-      char buffer[sizeof(Test)];
+      char buffer[sizeof(Object)];
 
-      Test test1;
-      test1.text = "12345678";
-      Test& test2 = test1.make_copy_at(buffer);
-      test1.text = "87654321";
+      Object object1;
+      object1.text = "12345678";
+      Object& object2 = object1.make_copy_at(buffer);
+      object1.text = "87654321";
 
-      CHECK_EQUAL(std::string("87654321"), test1.text);
-      CHECK_EQUAL(std::string("12345678"), test2.text);
+      CHECK_EQUAL(std::string("87654321"), object1.text);
+      CHECK_EQUAL(std::string("12345678"), object2.text);
 
       int count = 0;
-      test1.make_copy_at(buffer, count);
+      object1.make_copy_at(buffer, count);
 
       CHECK_EQUAL(1, count);
     }
@@ -853,10 +881,13 @@ namespace
     //*************************************************************************
     TEST(test_unique_ptr_release)
     {
-      etl::unique_ptr<int> up(new int);
+      auto buffer = new int;
+      etl::unique_ptr<int> up(buffer);
 
       CHECK(up.release() != nullptr);
       CHECK(!bool(up));
+
+      delete buffer;
     }
 
     //*************************************************************************
@@ -886,6 +917,17 @@ namespace
     TEST(test_unique_ptr_from_nullptr_assignment)
     {
       etl::unique_ptr<int> up(new int);
+
+      up = nullptr;
+
+      CHECK(up.get() == nullptr);
+      CHECK(!bool(up));
+    }
+
+    //*************************************************************************
+    TEST(test_unique_ptr_nullptr_from_nullptr_assignment)
+    {
+      etl::unique_ptr<int> up;
 
       up = nullptr;
 
@@ -932,7 +974,7 @@ namespace
     //*************************************************************************
     TEST(test_unique_ptr_from_array_pointer_construction)
     {
-      etl::unique_ptr<int> up(new int[4]);
+      etl::unique_ptr<int[]> up(new int[4]);
       std::iota(&up[0], &up[4], 0);
 
       CHECK(up.get() != nullptr);
@@ -946,9 +988,9 @@ namespace
     //*************************************************************************
     TEST(test_unique_ptr_move_array_construction)
     {
-      etl::unique_ptr<int> up1(new int[4]);
+      etl::unique_ptr<int[]> up1(new int[4]);
       std::iota(&up1[0], &up1[4], 0);
-      etl::unique_ptr<int> up2(std::move(up1));
+      etl::unique_ptr<int[]> up2(std::move(up1));
 
       CHECK(up1.get() == nullptr);
       CHECK(!bool(up1));
@@ -963,17 +1005,20 @@ namespace
     //*************************************************************************
     TEST(test_unique_ptr_array_release)
     {
-      etl::unique_ptr<int> up(new int[4]);
+      auto buffer = new int[4];
+      etl::unique_ptr<int[]> up(buffer);
       std::iota(&up[0], &up[4], 0);
 
       CHECK(up.release() != nullptr);
       CHECK(!bool(up));
+
+      delete[] buffer;
     }
 
     //*************************************************************************
     TEST(test_unique_ptr_array_reset)
     {
-      etl::unique_ptr<int> up(new int[4]);
+      etl::unique_ptr<int[]> up(new int[4]);
       std::iota(&up[0], &up[4], 0);
 
       int* p = new int[4];
@@ -993,10 +1038,10 @@ namespace
     //*************************************************************************
     TEST(test_unique_ptr_array_swap)
     {
-      etl::unique_ptr<int> up1(new int[4]);
+      etl::unique_ptr<int[]> up1(new int[4]);
       std::iota(&up1[0], &up1[4], 0);
 
-      etl::unique_ptr<int> up2(new int[4]);
+      etl::unique_ptr<int[]> up2(new int[4]);
       std::iota(&up2[0], &up2[4], 4);
 
       up1.swap(up2);
@@ -1015,7 +1060,7 @@ namespace
     //*************************************************************************
     TEST(test_unique_ptr_array_from_nullptr_assignment)
     {
-      etl::unique_ptr<int> up(new int[4]);
+      etl::unique_ptr<int[]> up(new int[4]);
 
       up = nullptr;
 
@@ -1026,10 +1071,10 @@ namespace
     //*************************************************************************
     TEST(test_unique_ptr_array_move_assignment)
     {
-      etl::unique_ptr<int> up1(new int[4]);
+      etl::unique_ptr<int[]> up1(new int[4]);
       std::iota(&up1[0], &up1[4], 0);
 
-      etl::unique_ptr<int> up2(new int[4]);
+      etl::unique_ptr<int[]> up2(new int[4]);
       std::iota(&up2[0], &up2[4], 4);
 
       up1 = std::move(up2);
@@ -1084,10 +1129,10 @@ namespace
     //*************************************************************************
     TEST(test_uninitialized_buffer)
     {
-      typedef etl::uninitialized_buffer<sizeof(uint32_t), 4, etl::alignment_of_v<uint32_t>> storage32_t;
+      typedef etl::uninitialized_buffer<sizeof(uint32_t), 4, etl::alignment_of<uint32_t>::value> storage32_t;
 
-      size_t alignment = etl::alignment_of_v<storage32_t>;
-      size_t expected  = std::alignment_of_v<uint32_t>;
+      size_t alignment = etl::alignment_of<storage32_t>::value;
+      size_t expected  = std::alignment_of<uint32_t>::value;
 
       CHECK_EQUAL(expected, alignment);
     }
@@ -1120,10 +1165,369 @@ namespace
       CHECK_EQUAL(2U, refbuffer[2]);
       CHECK_EQUAL(3U, refbuffer[3]);
 
-      size_t alignment = etl::alignment_of_v<storage32_t>;
-      size_t expected  = std::alignment_of_v<uint32_t>;
+      size_t alignment = etl::alignment_of<storage32_t>::value;
+      size_t expected  = std::alignment_of<uint32_t>::value;
 
       CHECK_EQUAL(expected, alignment);
+    }
+
+    //*************************************************************************
+    TEST(test_mem_copy_pointer_pointer_pointer)
+    {
+      uint32_t src[8] = { 0x12345678, 0x76543210, 0x01452367, 0x23670145, 0x67234501, 0x45016723, 0x01324576, 0x76453201 };
+      uint32_t dst[8] = { 0, 0, 0, 0, 0, 0, 0, 0 };
+
+      etl::mem_copy(src, src + 8, dst);
+
+      CHECK(std::equal(src, src + 8, dst));
+    }
+
+    //*************************************************************************
+    TEST(test_mem_copy_pointer_length_pointer)
+    {
+      uint32_t src[8] = { 0x12345678, 0x76543210, 0x01452367, 0x23670145, 0x67234501, 0x45016723, 0x01324576, 0x76453201 };
+      uint32_t dst[8] = { 0, 0, 0, 0, 0, 0, 0, 0 };
+
+      etl::mem_copy(src, 8, dst);
+
+      CHECK(std::equal(src, src + 8, dst));
+    }
+
+    //*************************************************************************
+    TEST(test_mem_move_pointer_pointer_pointer)
+    {
+      uint32_t expected[8] = { 0x12345678, 0x76543210, 0x01452367, 0x23670145, 0x67234501, 0x45016723, 0x01324576, 0x76453201 };
+      uint32_t data[12]    = { 0x12345678, 0x76543210, 0x01452367, 0x23670145, 0x67234501, 0x45016723, 0x01324576, 0x76453201, 0, 0, 0, 0 };
+
+      etl::mem_move(data, data + 8, data + 4);
+
+      CHECK(std::equal(expected, expected + 8, data + 4));
+    }
+
+    //*************************************************************************
+    TEST(test_mem_move_pointer_length_pointer)
+    {
+      uint32_t expected[8] = { 0x12345678, 0x76543210, 0x01452367, 0x23670145, 0x67234501, 0x45016723, 0x01324576, 0x76453201 };
+      uint32_t data[12]    = { 0x12345678, 0x76543210, 0x01452367, 0x23670145, 0x67234501, 0x45016723, 0x01324576, 0x76453201, 0, 0, 0, 0 };
+
+      etl::mem_move(data, 8, data + 4);
+
+      CHECK(std::equal(expected, expected + 8, data + 4));
+    }
+
+    //*************************************************************************
+    TEST(test_mem_compare_pointer_pointer_pointer)
+    {
+      uint32_t data[8] = { 0x12345678, 0x76543210, 0x01452367, 0x23670145, 0x67234501, 0x45016723, 0x01324576, 0x76453201 };
+      uint32_t same[8] = { 0x12345678, 0x76543210, 0x01452367, 0x23670145, 0x67234501, 0x45016723, 0x01324576, 0x76453201 };
+      uint32_t grtr[8] = { 0x12345678, 0x76543210, 0x01452367, 0x23670145, 0x67235501, 0x45016723, 0x01324576, 0x76453201 };
+      uint32_t less[8] = { 0x12345678, 0x76543210, 0x01452367, 0x23670145, 0x67134501, 0x45016723, 0x01324576, 0x76453201 };
+      
+      CHECK(etl::mem_compare(data, data + 8, same) == 0);
+      CHECK(etl::mem_compare(data, data + 8, grtr) > 0);
+      CHECK(etl::mem_compare(data, data + 8, less) < 0);
+    }
+
+    //*************************************************************************
+    TEST(test_mem_compare_pointer_length_pointer)
+    {
+      uint32_t data[8] = { 0x12345678, 0x76543210, 0x01452367, 0x23670145, 0x67234501, 0x45016723, 0x01324576, 0x76453201 };
+      uint32_t same[8] = { 0x12345678, 0x76543210, 0x01452367, 0x23670145, 0x67234501, 0x45016723, 0x01324576, 0x76453201 };
+      uint32_t grtr[8] = { 0x12345678, 0x76543210, 0x01452367, 0x23670145, 0x67235501, 0x45016723, 0x01324576, 0x76453201 };
+      uint32_t less[8] = { 0x12345678, 0x76543210, 0x01452367, 0x23670145, 0x67134501, 0x45016723, 0x01324576, 0x76453201 };
+
+      CHECK(etl::mem_compare(data, 8, same) == 0);
+      CHECK(etl::mem_compare(data, 8, grtr) > 0);
+      CHECK(etl::mem_compare(data, 8, less) < 0);
+    }
+
+    //*************************************************************************
+    TEST(test_mem_set_pointer_pointer)
+    {
+      uint32_t data[8]     = { 0, 0, 0, 0, 0, 0, 0, 0 };
+      uint32_t expected[8] = { 0, 0x5A5A5A5A, 0x5A5A5A5A, 0x5A5A5A5A, 0x5A5A5A5A, 0, 0, 0 };
+
+      etl::mem_set(data + 1, data + 5, 0x5A);
+
+      CHECK(std::equal(expected, expected + 8, data));
+    }
+
+    //*************************************************************************
+    TEST(test_mem_set_pointer_length)
+    {
+      uint32_t data[8] = { 0, 0, 0, 0, 0, 0, 0, 0 };
+      uint32_t expected[8] = { 0, 0x5A5A5A5A, 0x5A5A5A5A, 0x5A5A5A5A, 0x5A5A5A5A, 0, 0, 0 };
+
+      etl::mem_set(data + 1, 4, 0x5A);
+
+      CHECK(std::equal(expected, expected + 8, data));
+    }
+
+    //*************************************************************************
+    TEST(test_mem_char_pointer_pointer)
+    {
+      uint32_t data[8] = { 0x12345678, 0x76543210, 0x01452367, 0x23670145, 0x67294501, 0x45016723, 0x01324576, 0x76453201 };
+
+      char *p1 = etl::mem_char(data, data + 8, 0x29);
+      char* p2 = etl::mem_char(data, data + 8, 0x99);
+
+      CHECK_EQUAL(uint32_t(0x29), uint32_t(*p1));
+      CHECK((reinterpret_cast<char*>(data) + 18) == p1);
+      CHECK((reinterpret_cast<char*>(data) + 32) == p2);
+    }
+
+    //*************************************************************************
+    TEST(test_mem_char_pointer_pointer_const)
+    {
+      const uint32_t data[8] = { 0x12345678, 0x76543210, 0x01452367, 0x23670145, 0x67294501, 0x45016723, 0x01324576, 0x76453201 };
+
+      const char* p1 = etl::mem_char(data, data + 8, 0x29);
+      const char* p2 = etl::mem_char(data, data + 8, 0x99);
+
+      CHECK_EQUAL(uint32_t(0x29), uint32_t(*p1));
+      CHECK((reinterpret_cast<const char*>(data) + 18) == p1);
+      CHECK((reinterpret_cast<const char*>(data) + 32) == p2);
+    }
+
+    //*************************************************************************
+    TEST(test_mem_char_pointer_length)
+    {
+      uint32_t data[8] = { 0x12345678, 0x76543210, 0x01452367, 0x23670145, 0x67294501, 0x45016723, 0x01324576, 0x76453201 };
+
+      char* p1 = etl::mem_char(data, 8, 0x29);
+      char* p2 = etl::mem_char(data, 8, 0x99);
+
+      CHECK_EQUAL(uint32_t(0x29), uint32_t(*p1));
+      CHECK((reinterpret_cast<char*>(data) + 18) == p1);
+      CHECK((reinterpret_cast<char*>(data) + 32) == p2);
+    }
+
+    //*************************************************************************
+    TEST(test_mem_char_pointer_length_const)
+    {
+      const uint32_t data[8] = { 0x12345678, 0x76543210, 0x01452367, 0x23670145, 0x67294501, 0x45016723, 0x01324576, 0x76453201 };
+
+      const char* p1 = etl::mem_char(data, 8, 0x29);
+      const char* p2 = etl::mem_char(data, 8, 0x99);
+
+      CHECK_EQUAL(uint32_t(0x29), uint32_t(*p1));
+      CHECK((reinterpret_cast<const char*>(data) + 18) == p1);
+      CHECK((reinterpret_cast<const char*>(data) + 32) == p2);
+    }
+
+    //*************************************************************************
+    class Base 
+    {
+    public:
+      virtual ~Base() {};
+      virtual void function() = 0;
+    };
+
+    static bool function_was_called = false;
+
+    class Derived : public Base 
+    {
+    public:
+      Derived() 
+      {
+        function_was_called = false;
+      }
+
+      void function() 
+      {
+        function_was_called = true;
+      }
+    };
+
+    void call(etl::unique_ptr<Base> ptr) 
+    {
+      ptr->function();
+    }
+
+    TEST(test_derived_type)
+    {
+      CHECK(!function_was_called);
+
+      etl::unique_ptr<Derived> ptr(new Derived());
+      CHECK(ptr.get() != ETL_NULLPTR);
+      
+      call(etl::move(ptr));
+      CHECK(function_was_called);
+      CHECK(ptr.get() == ETL_NULLPTR);
+    }
+
+    //*************************************************************************
+    struct Flags
+    {
+      Flags()
+        : constructed(false)
+        , destructed(false)
+      {
+      }
+
+      void Clear()
+      {
+        constructed = false;
+        destructed = false;
+      }
+
+      bool constructed;
+      bool destructed;
+    };
+
+    static Flags flags;
+
+    TEST(test_construct_get_destroy_object_aligned)
+    {
+      struct Data
+      {
+        Data()
+          : a(1)
+          , b(2)
+        {
+          flags.constructed = true;
+        }
+
+        Data(int a_, int b_)
+          : a(a_)
+          , b(b_)
+        {
+          flags.constructed = true;
+        }
+
+        ~Data()
+        {
+          flags.destructed = true;
+        }
+
+        int a;
+        int b;
+      };
+     
+      alignas(Data) char buffer1[sizeof(Data)];
+      char* pbuffer1 = buffer1;
+
+      alignas(Data) char buffer1b[sizeof(Data)];
+      char* pbuffer1b = buffer1b;
+
+      alignas(Data) char buffer2[sizeof(Data)];
+      char* pbuffer2 = buffer2;
+
+      alignas(Data) char buffer2b[sizeof(Data)];
+      char* pbuffer2b = buffer2b;
+
+      alignas(Data) char buffer3[sizeof(Data)];
+      char* pbuffer3 = buffer3;
+
+      alignas(Data) char buffer3b[sizeof(Data)];
+      char* pbuffer3b = buffer3b;
+
+      flags.Clear();
+      Data& rdata1 = etl::construct_object_at<Data>(pbuffer1);
+      CHECK_TRUE(flags.constructed);
+      CHECK_FALSE(flags.destructed);
+      CHECK_EQUAL(1, rdata1.a);
+      CHECK_EQUAL(2, rdata1.b);
+
+      flags.Clear();
+      Data data2(3, 4);
+      Data& rdata2 = etl::construct_object_at(pbuffer2, data2);
+      CHECK_TRUE(flags.constructed);
+      CHECK_FALSE(flags.destructed);
+      CHECK_EQUAL(data2.a, rdata2.a);
+      CHECK_EQUAL(data2.b, rdata2.b);
+
+      flags.Clear();
+      Data& rdata3 = etl::construct_object_at<Data>(pbuffer3, 5, 6);
+      CHECK_TRUE(flags.constructed);
+      CHECK_FALSE(flags.destructed);
+      CHECK_EQUAL(5, rdata3.a);
+      CHECK_EQUAL(6, rdata3.b);
+
+      memcpy(buffer1b, buffer1, sizeof(Data));
+      memcpy(buffer2b, buffer2, sizeof(Data));
+      memcpy(buffer3b, buffer3, sizeof(Data));
+
+      flags.Clear();
+      Data& rdata1b = etl::get_object_at<Data>(pbuffer1b);
+      CHECK_FALSE(flags.constructed);
+      CHECK_FALSE(flags.destructed);
+      CHECK_EQUAL(1, rdata1b.a);
+      CHECK_EQUAL(2, rdata1b.b);
+      
+      flags.Clear();
+      Data& rdata2b = etl::get_object_at<Data>(pbuffer2b);
+      CHECK_FALSE(flags.constructed);
+      CHECK_FALSE(flags.destructed);
+      CHECK_EQUAL(data2.a, rdata2b.a);
+      CHECK_EQUAL(data2.b, rdata2b.b);
+      
+      flags.Clear();
+      Data& rdata3b = etl::get_object_at<Data>(pbuffer3b);
+      CHECK_FALSE(flags.constructed);
+      CHECK_FALSE(flags.destructed);
+      CHECK_EQUAL(5, rdata3b.a);
+      CHECK_EQUAL(6, rdata3b.b);
+
+      flags.Clear();
+      etl::destroy_object_at<Data>(pbuffer1b);
+      CHECK_FALSE(flags.constructed);
+      CHECK_TRUE(flags.destructed);
+
+      flags.Clear();
+      etl::destroy_object_at<Data>(pbuffer2b);
+      CHECK_FALSE(flags.constructed);
+      CHECK_TRUE(flags.destructed);
+
+      flags.Clear();
+      etl::destroy_object_at<Data>(pbuffer3b);
+      CHECK_FALSE(flags.constructed);
+      CHECK_TRUE(flags.destructed);
+    }
+
+    TEST(test_construct_get_destroy_object_misaligned)
+    {
+      struct Data
+      {
+        Data()
+          : a(1)
+          , b(2)
+        {
+        }
+
+        Data(int a_, int b_)
+          : a(a_)
+          , b(b_)
+        {
+        }
+
+        ~Data()
+        {
+        }
+
+        int a;
+        int b;
+      };
+
+      alignas(Data) char buffer1[sizeof(Data)];
+      char* pbuffer1 = buffer1 + 1;
+
+      alignas(Data) char buffer2[sizeof(Data)];
+      char* pbuffer2 = buffer2 + 1;
+
+      alignas(Data) char buffer3[sizeof(Data)];
+      char* pbuffer3 = buffer3 + 1;
+
+      CHECK_THROW(etl::construct_object_at<Data>(pbuffer1), etl::alignment_error);
+
+      Data data2(3, 4);
+      CHECK_THROW(etl::construct_object_at(pbuffer2, data2), etl::alignment_error);
+
+      CHECK_THROW(etl::construct_object_at<Data>(pbuffer3, 5, 6), etl::alignment_error);
+
+      CHECK_THROW(etl::get_object_at<Data>(pbuffer1), etl::alignment_error);
+
+      CHECK_THROW(etl::destroy_object_at<Data>(pbuffer1), etl::alignment_error);
     }
   };
 }

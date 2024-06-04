@@ -7,7 +7,7 @@ Embedded Template Library.
 https://github.com/ETLCPP/etl
 https://www.etlcpp.com
 
-Copyright(c) 2015 jwellbelove
+Copyright(c) 2015 John Wellbelove
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files(the "Software"), to deal
@@ -32,8 +32,6 @@ SOFTWARE.
 #define ETL_FIXED_ITERATOR_INCLUDED
 
 #include "platform.h"
-#include "iterator.h"
-
 #include "iterator.h"
 
 ///\defgroup iterator Iterator types
@@ -62,6 +60,14 @@ namespace etl
     //***************************************************************************
     fixed_iterator(TIterator it_)
       : it(it_)
+    {
+    }
+
+    //***************************************************************************
+    /// Copy constructor
+    //***************************************************************************
+    fixed_iterator(const fixed_iterator& other)
+      : it(other.it)
     {
     }
 
@@ -200,8 +206,8 @@ namespace etl
   /// - fixed_iterator operator.
   //*****************************************************************************
   template <typename TIterator>
-  typename etl::iterator_traits<TIterator>::difference_type operator -(etl::fixed_iterator<TIterator>& lhs,
-                                                                      etl::fixed_iterator<TIterator>& rhs)
+  typename etl::iterator_traits<TIterator>::difference_type operator -(const etl::fixed_iterator<TIterator>& lhs,
+                                                                       const etl::fixed_iterator<TIterator>& rhs)
   {
     return TIterator(lhs) - TIterator(rhs);
   }
@@ -211,7 +217,7 @@ namespace etl
   //*****************************************************************************
   template <typename TIterator>
   bool operator ==(const etl::fixed_iterator<TIterator>& lhs,
-                  const etl::fixed_iterator<TIterator>& rhs)
+                   const etl::fixed_iterator<TIterator>& rhs)
   {
     return TIterator(lhs) == TIterator(rhs);
   }
@@ -221,7 +227,7 @@ namespace etl
   //*****************************************************************************
   template <typename TIterator>
   bool operator ==(const etl::fixed_iterator<TIterator>& lhs,
-                  TIterator rhs)
+                   TIterator rhs)
   {
     return TIterator(lhs) == rhs;
   }
@@ -231,7 +237,7 @@ namespace etl
   //*****************************************************************************
   template <typename TIterator>
   bool operator ==(TIterator lhs,
-                  const etl::fixed_iterator<TIterator>& rhs)
+                   const etl::fixed_iterator<TIterator>& rhs)
   {
     return lhs == TIterator(rhs);
   }
@@ -242,7 +248,7 @@ namespace etl
   //*****************************************************************************
   template <typename TIterator>
   bool operator !=(const etl::fixed_iterator<TIterator>& lhs,
-                  const etl::fixed_iterator<TIterator>& rhs)
+                   const etl::fixed_iterator<TIterator>& rhs)
   {
     return !(lhs == rhs);
   }
@@ -252,7 +258,7 @@ namespace etl
   //*****************************************************************************
   template <typename TIterator>
   bool operator !=(const etl::fixed_iterator<TIterator>& lhs,
-                  TIterator rhs)
+                   TIterator rhs)
   {
     return !(lhs == rhs);
   }
@@ -262,7 +268,7 @@ namespace etl
   //*****************************************************************************
   template <typename TIterator>
   bool operator !=(TIterator& lhs,
-                  const etl::fixed_iterator<TIterator>& rhs)
+                   const etl::fixed_iterator<TIterator>& rhs)
   {
     return !(lhs == rhs);
   }

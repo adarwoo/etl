@@ -7,7 +7,7 @@ Embedded Template Library.
 https://github.com/ETLCPP/etl
 https://www.etlcpp.com
 
-Copyright(c) 2015 jwellbelove, rlindeman
+Copyright(c) 2015 John Wellbelove, rlindeman
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files(the "Software"), to deal
@@ -31,19 +31,18 @@ SOFTWARE.
 #ifndef ETL_PRIORITY_QUEUE_INCLUDED
 #define ETL_PRIORITY_QUEUE_INCLUDED
 
-#include <stddef.h>
-
 #include "platform.h"
-
 #include "algorithm.h"
 #include "utility.h"
 #include "functional.h"
-#include "container.h"
+#include "iterator.h"
 #include "vector.h"
 #include "type_traits.h"
 #include "parameter_type.h"
 #include "error_handler.h"
 #include "exception.h"
+
+#include <stddef.h>
 
 //*****************************************************************************
 ///\defgroup queue queue
@@ -122,7 +121,7 @@ namespace etl
     typedef TCompare              compare_type;       ///< The comparison type.
     typedef T&                    reference;          ///< A reference to the type used in the queue.
     typedef const T&              const_reference;    ///< A const reference to the type used in the queue.
-#if ETL_CPP11_SUPPORTED
+#if ETL_USING_CPP11
     typedef T&&                   rvalue_reference;   ///< An rvalue reference to the type used in the queue.
 #endif
     typedef typename TContainer::size_type size_type; ///< The type used for determining the size of the queue.
@@ -162,7 +161,7 @@ namespace etl
       etl::push_heap(container.begin(), container.end(), compare);
     }
 
-#if ETL_CPP11_SUPPORTED
+#if ETL_USING_CPP11
     //*************************************************************************
     /// Moves a value to the queue.
     /// If asserts or exceptions are enabled, throws an etl::priority_queue_full
@@ -180,7 +179,7 @@ namespace etl
     }
 #endif
 
-#if ETL_CPP11_SUPPORTED && ETL_NOT_USING_STLPORT && !defined(ETL_PRIORITY_QUEUE_FORCE_CPP03)
+#if ETL_USING_CPP11 && ETL_NOT_USING_STLPORT && !defined(ETL_PRIORITY_QUEUE_FORCE_CPP03_IMPLEMENTATION)
     //*************************************************************************
     /// Emplaces a value to the queue.
     /// If asserts or exceptions are enabled, throws an etl::priority_queue_full
@@ -198,6 +197,22 @@ namespace etl
       etl::push_heap(container.begin(), container.end(), compare);
     }
 #else
+    //*************************************************************************
+    /// Emplaces a value to the queue.
+    /// If asserts or exceptions are enabled, throws an etl::priority_queue_full
+    /// is the priority queue is already full.
+    ///\param value The value to push to the queue.
+    //*************************************************************************
+    void emplace()
+    {
+      ETL_ASSERT(!full(), ETL_ERROR(etl::priority_queue_full));
+
+      // Put element at end
+      container.emplace_back();
+      // Make elements in container into heap
+      etl::push_heap(container.begin(), container.end(), compare);
+    }
+
     //*************************************************************************
     /// Emplaces a value to the queue.
     /// If asserts or exceptions are enabled, throws an etl::priority_queue_full
@@ -279,7 +294,7 @@ namespace etl
     template <typename TIterator>
     void assign(TIterator first, TIterator last)
     {
-#if defined(ETL_DEBUG)
+#if ETL_IS_DEBUG_BUILD
       difference_type d = etl::distance(first, last);
       ETL_ASSERT(d >= 0, ETL_ERROR(etl::priority_queue_iterator));
       ETL_ASSERT(static_cast<size_t>(d) <= max_size(), ETL_ERROR(etl::priority_queue_full));
@@ -363,6 +378,35 @@ namespace etl
       container.clear();
     }
 
+    //*************************************************************************
+    /// Assignment operator.
+    //*************************************************************************
+    ipriority_queue& operator = (const ipriority_queue& rhs)
+    {
+      if (&rhs != this)
+      {
+        clone(rhs);
+      }
+
+      return *this;
+    }
+
+#if ETL_USING_CPP11
+    //*************************************************************************
+    /// Move assignment operator.
+    //*************************************************************************
+    ipriority_queue& operator = (ipriority_queue&& rhs)
+    {
+      if (&rhs != this)
+      {
+        clear();
+        move(etl::move(rhs));
+      }
+
+      return *this;
+    }
+#endif
+
   protected:
 
     //*************************************************************************
@@ -373,7 +417,7 @@ namespace etl
       assign(other.container.cbegin(), other.container.cend());
     }
 
-#if ETL_CPP11_SUPPORTED
+#if ETL_USING_CPP11
     //*************************************************************************
     /// Make this a moved version of the supplied priority queue
     //*************************************************************************
@@ -439,7 +483,7 @@ namespace etl
       etl::ipriority_queue<T, TContainer, TCompare>::clone(rhs);
     }
 
-#if ETL_CPP11_SUPPORTED
+#if ETL_USING_CPP11
     //*************************************************************************
     /// Move constructor
     //*************************************************************************
@@ -484,7 +528,7 @@ namespace etl
       return *this;
     }
 
-#if ETL_CPP11_SUPPORTED
+#if ETL_USING_CPP11
     //*************************************************************************
     /// Move assignment operator.
     //*************************************************************************
@@ -492,6 +536,7 @@ namespace etl
     {
       if (&rhs != this)
       {
+        etl::ipriority_queue<T, TContainer, TCompare>::clear();
         etl::ipriority_queue<T, TContainer, TCompare>::move(etl::move(rhs));
       }
 
@@ -499,6 +544,9 @@ namespace etl
     }
 #endif
   };
+
+  template <typename T, const size_t SIZE, typename TContainer, typename TCompare>
+  ETL_CONSTANT typename priority_queue<T, SIZE, TContainer, TCompare>::size_type priority_queue<T, SIZE, TContainer, TCompare>::MAX_SIZE;
 }
 
 #endif

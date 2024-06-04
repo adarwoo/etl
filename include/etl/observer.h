@@ -7,7 +7,7 @@ Embedded Template Library.
 https://github.com/ETLCPP/etl
 https://www.etlcpp.com
 
-Copyright(c) 2014 jwellbelove
+Copyright(c) 2014 John Wellbelove
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files(the "Software"), to deal
@@ -92,7 +92,7 @@ namespace etl
   //*********************************************************************
   /// The object that is being observed.
   ///\tparam TObserver     The observer type.
-  ///\tparam MAX_OBSERVERS The maximum number of observers that can be accomodated.
+  ///\tparam MAX_OBSERVERS The maximum number of observers that can be accommodated.
   ///\ingroup observer
   //*********************************************************************
   template <typename TObserver, const size_t MAX_OBSERVERS>
@@ -154,7 +154,7 @@ namespace etl
       if (i_observer_item == observer_list.end())
       {
         // Is there enough room?
-        ETL_ASSERT_AND_RETURN(!observer_list.full(), ETL_ERROR(etl::observer_list_full));
+        ETL_ASSERT_OR_RETURN(!observer_list.full(), ETL_ERROR(etl::observer_list_full));
 
         // Add it.
         observer_list.push_back(observer_item(observer));
@@ -232,31 +232,9 @@ namespace etl
       return observer_list.size();
     }
 
-#if ETL_CPP11_SUPPORTED && !defined(ETL_OBSERVER_FORCE_CPP03)
     //*****************************************************************
     /// Notify all of the observers, sending them the notification.
-    ///\tparam TNotification the notification type.
-    ///\param n The notification.
-    //*****************************************************************
-    template <typename TNotification>
-    void notify_observers(TNotification&& n)
-    {
-      typename Observer_List::iterator i_observer_item = observer_list.begin();
-
-      while (i_observer_item != observer_list.end())
-      {
-        if (i_observer_item->enabled)
-        {
-          i_observer_item->p_observer->notification(etl::forward<TNotification>(n));
-        }
-
-        ++i_observer_item;
-      }
-    }
-#else
-    //*****************************************************************
-    /// Notify all of the observers, sending them the notification.
-    ///\tparam TNotification the notification type.
+    ///\tparam TNotification The notification type.
     ///\param n The notification.
     //*****************************************************************
     template <typename TNotification>
@@ -274,7 +252,6 @@ namespace etl
         ++i_observer_item;
       }
     }
-#endif
 
   protected:
 
@@ -297,7 +274,7 @@ namespace etl
     Observer_List observer_list;
   };
 
-#if ETL_CPP11_SUPPORTED && !defined(ETL_OBSERVER_FORCE_CPP03)
+#if ETL_USING_CPP11 && !defined(ETL_OBSERVER_FORCE_CPP03_IMPLEMENTATION)
 
   //*****************************************************************
   /// The observer class for N types.

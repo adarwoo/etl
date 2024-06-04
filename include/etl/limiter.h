@@ -7,7 +7,7 @@ Embedded Template Library.
 https://github.com/ETLCPP/etl
 https://www.etlcpp.com
 
-Copyright(c) 2021 jwellbelove
+Copyright(c) 2021 John Wellbelove
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files(the "Software"), to deal
@@ -36,7 +36,6 @@ SOFTWARE.
 #include "type_traits.h"
 #include "algorithm.h"
 
-#include <math.h>
 #include <stdint.h>
 
 namespace etl

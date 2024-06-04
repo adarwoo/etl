@@ -5,7 +5,7 @@ Embedded Template Library.
 https://github.com/ETLCPP/etl
 https://www.etlcpp.com
 
-Copyright(c) 2017 jwellbelove
+Copyright(c) 2017 John Wellbelove
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files(the "Software"), to deal
@@ -29,11 +29,10 @@ SOFTWARE.
 #ifndef ETL_TIMER_INCLUDED
 #define ETL_TIMER_INCLUDED
 
-#include <stdint.h>
-
 #include "platform.h"
-
 #include "atomic.h"
+
+#include <stdint.h>
 
 //*****************************************************************************
 // Definitions common to timers.
@@ -44,7 +43,9 @@ namespace etl
 #ifdef ETL_TIMER_SEMAPHORE_TYPE
   typedef ETL_TIMER_SEMAPHORE_TYPE timer_semaphore_t;
 #else
-  typedef etl::atomic_uint32_t timer_semaphore_t;
+  #if ETL_HAS_ATOMIC
+    typedef etl::atomic_uint32_t timer_semaphore_t;
+  #endif
 #endif
 
   //***************************************************************************
@@ -58,7 +59,10 @@ namespace etl
       enum
       {
         SINGLE_SHOT = false,
-        REPEATING   = true
+        REPEATING   = true,
+
+        Single_Shot = false,
+        Repeating   = true
       };
 
       typedef bool type;
@@ -70,7 +74,10 @@ namespace etl
       enum
       {
         DELAYED   = false,
-        IMMEDIATE = true
+        IMMEDIATE = true,
+
+        Delayed   = false,
+        Immediate = true
       };
 
       typedef bool type;
@@ -81,7 +88,8 @@ namespace etl
     {
       enum
       {
-        NO_TIMER = 255
+        NO_TIMER = 255,
+        No_Timer = 255
       };
 
       typedef uint_least8_t type;
@@ -92,8 +100,20 @@ namespace etl
     {
       enum
       {
-        INACTIVE = 0xFFFFFFFFUL
+        INACTIVE = 0xFFFFFFFFUL,
+        Inactive = 0xFFFFFFFFUL
       };
+    };
+
+    // Timer time interval.
+    struct interval
+    {
+      enum
+      {
+        No_Active_Interval = 0xFFFFFFFFUL
+      };
+
+      typedef uint32_t type;
     };
   };
 }

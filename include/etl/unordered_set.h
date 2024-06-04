@@ -7,7 +7,7 @@ Embedded Template Library.
 https://github.com/ETLCPP/etl
 https://www.etlcpp.com
 
-Copyright(c) 2016 jwellbelove
+Copyright(c) 2016 John Wellbelove
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files(the "Software"), to deal
@@ -31,19 +31,17 @@ SOFTWARE.
 #ifndef ETL_UNORDERED_SET_INCLUDED
 #define ETL_UNORDERED_SET_INCLUDED
 
-#include <stddef.h>
-
 #include "platform.h"
 #include "algorithm.h"
 #include "iterator.h"
 #include "functional.h"
 #include "utility.h"
-#include "container.h"
 #include "pool.h"
 #include "vector.h"
 #include "intrusive_forward_list.h"
 #include "hash.h"
 #include "type_traits.h"
+#include "nth_type.h"
 #include "parameter_type.h"
 #include "nullptr.h"
 #include "error_handler.h"
@@ -52,10 +50,9 @@ SOFTWARE.
 #include "debug_count.h"
 #include "iterator.h"
 #include "placement_new.h"
+#include "initializer_list.h"
 
-#if ETL_CPP11_SUPPORTED && ETL_NOT_USING_STLPORT && ETL_USING_STL
-  #include <initializer_list>
-#endif
+#include <stddef.h>
 
 //*****************************************************************************
 ///\defgroup unordered_set unordered_set
@@ -136,17 +133,18 @@ namespace etl
     typedef TKeyEqual         key_equal;
     typedef value_type&       reference;
     typedef const value_type& const_reference;
-#if ETL_CPP11_SUPPORTED
+#if ETL_USING_CPP11
     typedef value_type&&      rvalue_reference;
 #endif
     typedef value_type*       pointer;
     typedef const value_type* const_pointer;
     typedef size_t            size_type;
 
-    typedef typename etl::parameter_type<TKey>::type key_parameter_t;
+    typedef const TKey& key_parameter_t;
 
     typedef etl::forward_link<0> link_t;
 
+    //*********************************************************************
     // The nodes that store the elements.
     struct node_t : public link_t
     {
@@ -158,7 +156,17 @@ namespace etl
       value_type key;
     };
 
-  private:
+    friend bool operator ==(const node_t& lhs, const node_t& rhs)
+    {
+      return (lhs.key == rhs.key);
+    }
+
+    friend bool operator !=(const node_t& lhs, const node_t& rhs)
+    {
+      return !(lhs == rhs);
+    }
+
+  protected:
 
     typedef etl::intrusive_forward_list<node_t, link_t> bucket_t;
     typedef etl::ipool pool_t;
@@ -167,14 +175,14 @@ namespace etl
 
     // Local iterators iterate over one bucket.
     typedef typename bucket_t::iterator       local_iterator;
-    typedef typename bucket_t::const_iterator local_const_iterator;
+    typedef typename bucket_t::const_iterator const_local_iterator;
 
     //*********************************************************************
     class iterator : public etl::iterator<ETL_OR_STD::forward_iterator_tag, TKey>
     {
     public:
 
-      typedef typename iunordered_set::value_type      value_type;
+      typedef typename etl::iterator<ETL_OR_STD::forward_iterator_tag, TKey>::value_type value_type;
       typedef typename iunordered_set::key_type        key_type;
       typedef typename iunordered_set::hasher          hasher;
       typedef typename iunordered_set::key_equal       key_equal;
@@ -194,9 +202,9 @@ namespace etl
 
       //*********************************
       iterator(const iterator& other)
-        : pbuckets_end(other.pbuckets_end),
-        pbucket(other.pbucket),
-        inode(other.inode)
+        : pbuckets_end(other.pbuckets_end)
+        , pbucket(other.pbucket)
+        , inode(other.inode)
       {
       }
 
@@ -276,9 +284,9 @@ namespace etl
 
       //*********************************
       iterator(bucket_t* pbuckets_end_, bucket_t* pbucket_, local_iterator inode_)
-        : pbuckets_end(pbuckets_end_),
-          pbucket(pbucket_),
-          inode(inode_)
+        : pbuckets_end(pbuckets_end_)
+        , pbucket(pbucket_)
+        , inode(inode_)
       {
       }
 
@@ -316,7 +324,7 @@ namespace etl
     {
     public:
 
-      typedef typename iunordered_set::value_type      value_type;
+      typedef typename etl::iterator<ETL_OR_STD::forward_iterator_tag, const TKey>::value_type value_type;
       typedef typename iunordered_set::key_type        key_type;
       typedef typename iunordered_set::hasher          hasher;
       typedef typename iunordered_set::key_equal       key_equal;
@@ -336,17 +344,17 @@ namespace etl
 
       //*********************************
       const_iterator(const typename iunordered_set::iterator& other)
-        : pbuckets_end(other.pbuckets_end),
-        pbucket(other.pbucket),
-        inode(other.inode)
+        : pbuckets_end(other.pbuckets_end)
+        , pbucket(other.pbucket)
+        , inode(other.inode)
       {
       }
 
       //*********************************
       const_iterator(const const_iterator& other)
-        : pbuckets_end(other.pbuckets_end),
-        pbucket(other.pbucket),
-        inode(other.inode)
+        : pbuckets_end(other.pbuckets_end)
+        , pbucket(other.pbucket)
+        , inode(other.inode)
       {
       }
 
@@ -427,9 +435,9 @@ namespace etl
 
       //*********************************
       const_iterator(bucket_t* pbuckets_end_, bucket_t* pbucket_, local_iterator inode_)
-        : pbuckets_end(pbuckets_end_),
-          pbucket(pbucket_),
-          inode(inode_)
+        : pbuckets_end(pbuckets_end_)
+        , pbucket(pbucket_)
+        , inode(inode_)
       {
       }
 
@@ -459,7 +467,7 @@ namespace etl
 
       bucket_t* pbuckets_end;
       bucket_t* pbucket;
-      local_iterator       inode;
+      local_iterator inode;
     };
 
     typedef typename etl::iterator_traits<iterator>::difference_type difference_type;
@@ -504,7 +512,7 @@ namespace etl
     /// Returns a const_iterator to the beginning of the unordered_set bucket.
     ///\return A const iterator to the beginning of the unordered_set bucket.
     //*********************************************************************
-    local_const_iterator begin(size_t i) const
+    const_local_iterator begin(size_t i) const
     {
       return pbuckets[i].cbegin();
     }
@@ -513,7 +521,7 @@ namespace etl
     /// Returns a const_iterator to the beginning of the unordered_set bucket.
     ///\return A const iterator to the beginning of the unordered_set bucket.
     //*********************************************************************
-    local_const_iterator cbegin(size_t i) const
+    const_local_iterator cbegin(size_t i) const
     {
       return pbuckets[i].cbegin();
     }
@@ -558,7 +566,7 @@ namespace etl
     /// Returns a const_iterator to the end of the unordered_set bucket.
     ///\return A const iterator to the end of the unordered_set bucket.
     //*********************************************************************
-    local_const_iterator end(size_t i) const
+    const_local_iterator end(size_t i) const
     {
       return pbuckets[i].cend();
     }
@@ -567,7 +575,7 @@ namespace etl
     /// Returns a const_iterator to the end of the unordered_set bucket.
     ///\return A const iterator to the end of the unordered_set bucket.
     //*********************************************************************
-    local_const_iterator cend(size_t i) const
+    const_local_iterator cend(size_t i) const
     {
       return pbuckets[i].cend();
     }
@@ -620,7 +628,7 @@ namespace etl
     template <typename TIterator>
     void assign(TIterator first_, TIterator last_)
     {
-#if defined(ETL_DEBUG)
+#if ETL_IS_DEBUG_BUILD
       difference_type d = etl::distance(first_, last_);
       ETL_ASSERT(d >= 0, ETL_ERROR(unordered_set_iterator));
       ETL_ASSERT(size_t(d) <= max_size(), ETL_ERROR(unordered_set_full));
@@ -630,7 +638,8 @@ namespace etl
 
       while (first_ != last_)
       {
-        insert(*first_++);
+        insert(*first_);
+        ++first_;
       }
     }
 
@@ -643,7 +652,20 @@ namespace etl
     {
       ETL_OR_STD::pair<iterator, bool> result(end(), false);
 
-      ETL_ASSERT(!full(), ETL_ERROR(unordered_set_full));
+      if (full())
+      {
+        iterator iter = find(key);
+        if (iter == end())
+        {
+          ETL_ASSERT_FAIL(ETL_ERROR(unordered_set_full));
+        }
+        else
+        { 
+          result.first = iter;
+          result.second = false;
+          return result;
+        }
+      }
 
       // Get the hash index.
       size_t index = get_bucket_index(key);
@@ -656,12 +678,13 @@ namespace etl
       if (bucket.empty())
       {
         // Get a new node.
-        node_t& node = create_data_node();
-        ::new (&node.key) value_type(key);
-        ETL_INCREMENT_DEBUG_COUNT
+        node_t* node = allocate_data_node();
+        node->clear();
+        ::new (&node->key) value_type(key);
+        ETL_INCREMENT_DEBUG_COUNT;
 
         // Just add the pointer to the bucket;
-        bucket.insert_after(bucket.before_begin(), node);
+        bucket.insert_after(bucket.before_begin(), *node);
         adjust_first_last_markers_after_insert(&bucket);
 
         result.first = iterator(pbuckets + number_of_buckets, pbucket, pbucket->begin());
@@ -676,7 +699,7 @@ namespace etl
         while (inode != bucket.end())
         {
           // Do we already have this key?
-          if (inode->key == key)
+          if (key_equal_function(inode->key, key))
           {
             break;
           }
@@ -689,12 +712,13 @@ namespace etl
         if (inode == bucket.end())
         {
           // Get a new node.
-          node_t& node = create_data_node();
-          ::new (&node.key) value_type(key);
-          ETL_INCREMENT_DEBUG_COUNT
+          node_t* node = allocate_data_node();
+          node->clear();
+          ::new (&node->key) value_type(key);
+          ETL_INCREMENT_DEBUG_COUNT;
 
           // Add the node to the end of the bucket;
-          bucket.insert_after(inode_previous, node);
+          bucket.insert_after(inode_previous, *node);
           adjust_first_last_markers_after_insert(&bucket);
           ++inode_previous;
 
@@ -706,7 +730,7 @@ namespace etl
       return result;
     }
 
-#if ETL_CPP11_SUPPORTED
+#if ETL_USING_CPP11
     //*********************************************************************
     /// Inserts a value to the unordered_set.
     /// If asserts or exceptions are enabled, emits unordered_set_full if the unordered_set is already full.
@@ -716,7 +740,20 @@ namespace etl
     {
       ETL_OR_STD::pair<iterator, bool> result(end(), false);
 
-      ETL_ASSERT(!full(), ETL_ERROR(unordered_set_full));
+      if (full())
+      {
+        iterator iter = find(key);
+        if (iter == end())
+        {
+          ETL_ASSERT_FAIL(ETL_ERROR(unordered_set_full));
+        }
+        else
+        { 
+          result.first = iter;
+          result.second = false;
+          return result;
+        }
+      }
 
       // Get the hash index.
       size_t index = get_bucket_index(key);
@@ -729,12 +766,13 @@ namespace etl
       if (bucket.empty())
       {
         // Get a new node.
-        node_t& node = create_data_node();
-        ::new (&node.key) value_type(etl::move(key));
-        ETL_INCREMENT_DEBUG_COUNT
+        node_t* node = allocate_data_node();
+        node->clear();
+        ::new (&node->key) value_type(etl::move(key));
+        ETL_INCREMENT_DEBUG_COUNT;
 
           // Just add the pointer to the bucket;
-          bucket.insert_after(bucket.before_begin(), node);
+          bucket.insert_after(bucket.before_begin(), *node);
         adjust_first_last_markers_after_insert(&bucket);
 
         result.first = iterator(pbuckets + number_of_buckets, pbucket, pbucket->begin());
@@ -749,7 +787,7 @@ namespace etl
         while (inode != bucket.end())
         {
           // Do we already have this key?
-          if (inode->key == key)
+          if (key_equal_function(inode->key, key))
           {
             break;
           }
@@ -762,12 +800,13 @@ namespace etl
         if (inode == bucket.end())
         {
           // Get a new node.
-          node_t& node = create_data_node();
-          ::new (&node.key) value_type(etl::move(key));
-          ETL_INCREMENT_DEBUG_COUNT
+          node_t* node = allocate_data_node();
+          node->clear();
+          ::new (&node->key) value_type(etl::move(key));
+          ETL_INCREMENT_DEBUG_COUNT;
 
             // Add the node to the end of the bucket;
-            bucket.insert_after(inode_previous, node);
+            bucket.insert_after(inode_previous, *node);
           adjust_first_last_markers_after_insert(&bucket);
           ++inode_previous;
 
@@ -791,7 +830,7 @@ namespace etl
       return insert(key).first;
     }
 
-#if ETL_CPP11_SUPPORTED
+#if ETL_USING_CPP11
     //*********************************************************************
     /// Inserts a value to the unordered_set.
     /// If asserts or exceptions are enabled, emits unordered_set_full if the unordered_set is already full.
@@ -816,7 +855,8 @@ namespace etl
     {
       while (first_ != last_)
       {
-        insert(*first_++);
+        insert(*first_);
+        ++first_;
       }
     }
 
@@ -836,7 +876,7 @@ namespace etl
       local_iterator icurrent = bucket.begin();
 
       // Search for the key, if we have it.
-      while ((icurrent != bucket.end()) && (icurrent->key != key))
+      while ((icurrent != bucket.end()) && (!key_equal_function(icurrent->key, key)))
       {
         ++iprevious;
         ++icurrent;
@@ -845,12 +885,8 @@ namespace etl
       // Did we find it?
       if (icurrent != bucket.end())
       {
-        bucket.erase_after(iprevious);  // Unlink from the bucket.
-        icurrent->key.~value_type();    // Destroy the value.
-        pnodepool->release(&*icurrent); // Release it back to the pool.
-        adjust_first_last_markers_after_erase(&bucket);
+        delete_data_node(iprevious, icurrent, bucket);
         n = 1;
-        ETL_DECREMENT_DEBUG_COUNT
       }
 
       return n;
@@ -876,11 +912,7 @@ namespace etl
         ++iprevious;
       }
 
-      bucket.erase_after(iprevious);  // Unlink from the bucket.
-      icurrent->key.~value_type();    // Destroy the value.
-      pnodepool->release(&*icurrent); // Release it back to the pool.
-      adjust_first_last_markers_after_erase(&bucket);
-      ETL_DECREMENT_DEBUG_COUNT
+      delete_data_node(iprevious, icurrent, bucket);
 
       return inext;
     }
@@ -901,9 +933,6 @@ namespace etl
         return end();
       }
 
-      // Make a note of the last.
-      iterator result((pbuckets + number_of_buckets), last_.get_bucket_list_iterator(), last_.get_local_iterator());
-
       // Get the starting point.
       bucket_t*      pbucket     = first_.get_bucket_list_iterator();
       bucket_t*      pend_bucket = last_.get_bucket_list_iterator();
@@ -917,17 +946,13 @@ namespace etl
         ++iprevious;
       }
 
+      // Remember the item before the first erased one.
+      iterator ibefore_erased = iterator((pbuckets + number_of_buckets), pbucket, iprevious);
+
       // Until we reach the end.
       while ((icurrent != iend) || (pbucket != pend_bucket))
       {
-
-        local_iterator inext = pbucket->erase_after(iprevious); // Unlink from the bucket.
-        icurrent->key.~value_type();    // Destroy the value.
-        pnodepool->release(&*icurrent); // Release it back to the pool.
-        adjust_first_last_markers_after_erase(pbucket);
-        ETL_DECREMENT_DEBUG_COUNT
-
-        icurrent = inext;
+        icurrent = delete_data_node(iprevious, icurrent, *pbucket);
 
         // Have we not reached the end?
         if ((icurrent != iend) || (pbucket != pend_bucket))
@@ -947,7 +972,7 @@ namespace etl
         }
       }
 
-      return result;
+      return ++ibefore_erased;
     }
 
     //*************************************************************************
@@ -1162,13 +1187,15 @@ namespace etl
       // Skip if doing self assignment
       if (this != &rhs)
       {
+        key_hash_function  = rhs.hash_function();
+        key_equal_function = rhs.key_eq();
         assign(rhs.cbegin(), rhs.cend());
       }
 
       return *this;
     }
 
-#if  ETL_CPP11_SUPPORTED
+#if  ETL_USING_CPP11
     //*************************************************************************
     /// Move assignment operator.
     //*************************************************************************
@@ -1178,6 +1205,8 @@ namespace etl
       if (this != &rhs)
       {
         clear();
+        key_hash_function = rhs.hash_function();
+        key_equal_function = rhs.key_eq();
         move(rhs.begin(), rhs.end());
       }
 
@@ -1190,10 +1219,14 @@ namespace etl
     //*********************************************************************
     /// Constructor.
     //*********************************************************************
-    iunordered_set(pool_t& node_pool_, bucket_t* pbuckets_, size_t number_of_buckets_)
-      : pnodepool(&node_pool_),
-        pbuckets(pbuckets_),
-        number_of_buckets(number_of_buckets_)
+    iunordered_set(pool_t& node_pool_, bucket_t* pbuckets_, size_t number_of_buckets_, hasher key_hash_function_, key_equal key_equal_function_)
+      : pnodepool(&node_pool_)
+      , pbuckets(pbuckets_)
+      , number_of_buckets(number_of_buckets_)
+      , first(pbuckets)
+      , last(pbuckets)
+      , key_hash_function(key_hash_function_)
+      , key_equal_function(key_equal_function_)
     {
     }
 
@@ -1219,7 +1252,7 @@ namespace etl
               // Destroy the value contents.
               it->key.~value_type();
               ++it;
-              ETL_DECREMENT_DEBUG_COUNT
+              ETL_DECREMENT_DEBUG_COUNT;
             }
 
             // Now it's safe to clear the bucket.
@@ -1232,24 +1265,27 @@ namespace etl
       }
 
       first = pbuckets;
-      last = first;
+      last  = first;
     }
 
-#if ETL_CPP11_SUPPORTED
+#if ETL_USING_CPP11
     //*************************************************************************
     /// Move from a range
     //*************************************************************************
-    void move(iterator first, iterator last)
+    void move(iterator b, iterator e)
     {
-#if defined(ETL_DEBUG)
-      difference_type d = etl::distance(first, last);
+#if ETL_IS_DEBUG_BUILD
+      difference_type d = etl::distance(b, e);
       ETL_ASSERT(d >= 0, ETL_ERROR(unordered_set_iterator));
       ETL_ASSERT(size_t(d) <= max_size(), ETL_ERROR(unordered_set_full));
 #endif
 
-      while (first != last)
+      while (b != e)
       {
-        insert(etl::move(*first++));
+        iterator temp = b;
+        ++temp;
+        insert(etl::move(*b));
+        b = temp;
       }
     }
 #endif
@@ -1259,10 +1295,10 @@ namespace etl
     //*************************************************************************
     /// Create a node.
     //*************************************************************************
-    node_t& create_data_node()
+    node_t* allocate_data_node()
     {
       node_t* (etl::ipool::*func)() = &etl::ipool::allocate<node_t>;
-      return *(pnodepool->*func)();
+      return (pnodepool->*func)();
     }
 
     //*********************************************************************
@@ -1273,7 +1309,7 @@ namespace etl
       if (size() == 1)
       {
         first = pbucket;
-        last = pbucket;
+        last  = pbucket;
       }
       else
       {
@@ -1311,7 +1347,7 @@ namespace etl
         else if (pbucket == last)
         {
           // We erased the last, so we need to search again. Start from the first, go no further than the current last.
-          bucket_t* pbucket = first;
+          pbucket = first;
           bucket_t* pend = last;
 
           last = first;
@@ -1326,11 +1362,21 @@ namespace etl
             ++pbucket;
           }
         }
-        else
-        {
-          // Nothing to do.
-        }
       }
+    }
+
+    //*********************************************************************
+    /// Delete a data node at the specified location.
+    //*********************************************************************
+    local_iterator delete_data_node(local_iterator iprevious, local_iterator icurrent, bucket_t& bucket)
+    {
+      local_iterator inext = bucket.erase_after(iprevious); // Unlink from the bucket.
+      icurrent->key.~value_type();                          // Destroy the value.
+      pnodepool->release(&*icurrent);                       // Release it back to the pool.
+      adjust_first_last_markers_after_erase(&bucket);
+      ETL_DECREMENT_DEBUG_COUNT;
+
+      return inext;
     }
 
     // Disable copy construction.
@@ -1356,11 +1402,11 @@ namespace etl
     key_equal key_equal_function;
 
     /// For library debugging purposes only.
-    ETL_DECLARE_DEBUG_COUNT
+    ETL_DECLARE_DEBUG_COUNT;
 
-    //*************************************************************************
-    /// Destructor.
-    //*************************************************************************
+      //*************************************************************************
+      /// Destructor.
+      //*************************************************************************
 #if defined(ETL_POLYMORPHIC_UNORDERED_SET) || defined(ETL_POLYMORPHIC_CONTAINERS)
   public:
     virtual ~iunordered_set()
@@ -1378,24 +1424,59 @@ namespace etl
   /// Equal operator.
   ///\param lhs Reference to the first unordered_set.
   ///\param rhs Reference to the second unordered_set.
-  ///\return <b>true</b> if the arrays are equal, otherwise <b>false</b>
+  ///\return <b>true</b> if the sets are equal, otherwise <b>false</b>
   ///\ingroup unordered_set
   //***************************************************************************
-  template <typename TKey, typename TMapped, typename TKeyCompare>
-  bool operator ==(const etl::iunordered_set<TKey, TMapped, TKeyCompare>& lhs, const etl::iunordered_set<TKey, TMapped, TKeyCompare>& rhs)
+  template <typename TKey, typename THash, typename TKeyEqual>
+  bool operator ==(const etl::iunordered_set<TKey, THash, TKeyEqual>& lhs, 
+                   const etl::iunordered_set<TKey, THash, TKeyEqual>& rhs)
   {
-    return (lhs.size() == rhs.size()) && etl::equal(lhs.begin(), lhs.end(), rhs.begin());
+    const bool sizes_match = (lhs.size() == rhs.size());
+    bool elements_match = true;
+
+    typedef typename etl::iunordered_set<TKey, THash, TKeyEqual>::const_iterator itr_t;
+
+    if (sizes_match)
+    {
+      itr_t l_begin = lhs.begin();
+      itr_t l_end   = lhs.end();
+
+      while ((l_begin != l_end) && elements_match)
+      {
+        const TKey l_value = *l_begin;
+
+        // See if the lhs key exists in the rhs.
+        ETL_OR_STD::pair<itr_t, itr_t> range = rhs.equal_range(l_value);
+
+        if (range.first != rhs.end())
+        {
+          // See if the values match
+          const TKey r_value = *(range.first);
+
+          elements_match = (r_value == l_value);
+        }
+        else
+        {
+          elements_match = false;
+        }
+
+        ++l_begin;
+      }
+    }
+
+    return (sizes_match && elements_match);
   }
 
   //***************************************************************************
   /// Not equal operator.
   ///\param lhs Reference to the first unordered_set.
   ///\param rhs Reference to the second unordered_set.
-  ///\return <b>true</b> if the arrays are not equal, otherwise <b>false</b>
+  ///\return <b>true</b> if the sets are not equal, otherwise <b>false</b>
   ///\ingroup unordered_set
   //***************************************************************************
-  template <typename TKey, typename TMapped, typename TKeyCompare>
-  bool operator !=(const etl::iunordered_set<TKey, TMapped, TKeyCompare>& lhs, const etl::iunordered_set<TKey, TMapped, TKeyCompare>& rhs)
+  template <typename TKey, typename THash, typename TKeyEqual>
+  bool operator !=(const etl::iunordered_set<TKey, THash, TKeyEqual>& lhs, 
+                   const etl::iunordered_set<TKey, THash, TKeyEqual>& rhs)
   {
     return !(lhs == rhs);
   }
@@ -1418,17 +1499,16 @@ namespace etl
     //*************************************************************************
     /// Default constructor.
     //*************************************************************************
-    unordered_set()
-      : base(node_pool, buckets, MAX_BUCKETS)
+    unordered_set(const THash& hash = THash(), const TKeyEqual& equal = TKeyEqual())
+      : base(node_pool, buckets, MAX_BUCKETS, hash, equal)
     {
-      base::initialise();
     }
 
     //*************************************************************************
     /// Copy constructor.
     //*************************************************************************
     unordered_set(const unordered_set& other)
-      : base(node_pool, buckets, MAX_BUCKETS)
+      : base(node_pool, buckets, MAX_BUCKETS, other.hash_function(), other.key_eq())
     {
       // Skip if doing self assignment
       if (this != &other)
@@ -1437,12 +1517,12 @@ namespace etl
       }
     }
 
-#if ETL_CPP11_SUPPORTED
+#if ETL_USING_CPP11
     //*************************************************************************
     /// Move constructor.
     //*************************************************************************
     unordered_set(unordered_set&& other)
-      : base(node_pool, buckets, MAX_BUCKETS)
+      : base(node_pool, buckets, MAX_BUCKETS, other.hash_function(), other.key_eq())
     {
       // Skip if doing self assignment
       if (this != &other)
@@ -1459,18 +1539,18 @@ namespace etl
     ///\param last  The iterator to the last element + 1.
     //*************************************************************************
     template <typename TIterator>
-    unordered_set(TIterator first_, TIterator last_)
-      : base(node_pool, buckets, MAX_BUCKETS)
+    unordered_set(TIterator first_, TIterator last_, const THash& hash = THash(), const TKeyEqual& equal = TKeyEqual())
+      : base(node_pool, buckets, MAX_BUCKETS, hash, equal)
     {
       base::assign(first_, last_);
     }
 
-#if ETL_CPP11_SUPPORTED && ETL_NOT_USING_STLPORT && ETL_USING_STL
+#if ETL_HAS_INITIALIZER_LIST
     //*************************************************************************
     /// Construct from initializer_list.
     //*************************************************************************
-    unordered_set(std::initializer_list<TKey> init)
-      : base(node_pool, buckets, MAX_BUCKETS)
+    unordered_set(std::initializer_list<TKey> init, const THash& hash = THash(), const TKeyEqual& equal = TKeyEqual())
+      : base(node_pool, buckets, MAX_BUCKETS, hash, equal)
     {
       base::assign(init.begin(), init.end());
     }
@@ -1489,27 +1569,18 @@ namespace etl
     //*************************************************************************
     unordered_set& operator = (const unordered_set& rhs)
     {
-      // Skip if doing self assignment
-      if (this != &rhs)
-      {
-        base::assign(rhs.cbegin(), rhs.cend());
-      }
+      base::operator=(rhs);
 
       return *this;
     }
 
-#if ETL_CPP11_SUPPORTED
+#if ETL_USING_CPP11
     //*************************************************************************
     /// Assignment operator.
     //*************************************************************************
     unordered_set& operator = (unordered_set&& rhs)
     {
-      // Skip if doing self assignment
-      if (this != &rhs)
-      {
-        base::clear();
-        base::move(rhs.begin(), rhs.end());
-      }
+      base::operator=(etl::move(rhs));
 
       return *this;
     }
@@ -1521,16 +1592,26 @@ namespace etl
     etl::pool<typename base::node_t, MAX_SIZE> node_pool;
 
     /// The buckets of node lists.
-    etl::intrusive_forward_list<typename base::node_t> buckets[MAX_BUCKETS_];
+    typename base::bucket_t buckets[MAX_BUCKETS_];
   };
 
   //*************************************************************************
   /// Template deduction guides.
   //*************************************************************************
-#if ETL_CPP17_SUPPORTED && ETL_NOT_USING_STLPORT && ETL_USING_STL
-  template <typename T, typename... Ts>
-  unordered_set(T, Ts...)
-    ->unordered_set<etl::enable_if_t<(etl::is_same_v<T, Ts> && ...), T>, 1U + sizeof...(Ts)>;
+#if ETL_USING_CPP17 && ETL_HAS_INITIALIZER_LIST
+  template <typename... T>
+  unordered_set(T...) -> unordered_set<etl::nth_type_t<0, T...>, sizeof...(T)>;
+#endif
+
+  //*************************************************************************
+  /// Make
+  //*************************************************************************
+#if ETL_USING_CPP11 && ETL_HAS_INITIALIZER_LIST
+  template <typename TKey, typename THash = etl::hash<TKey>, typename TKeyEqual = etl::equal_to<TKey>, typename... T>
+  constexpr auto make_unordered_set(T&&... keys) -> etl::unordered_set<TKey, sizeof...(T), sizeof...(T), THash, TKeyEqual>
+  {
+    return { {etl::forward<T>(keys)...} };
+  }
 #endif
 }
 

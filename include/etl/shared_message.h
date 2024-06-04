@@ -7,7 +7,7 @@ Embedded Template Library.
 https://github.com/ETLCPP/etl
 https://www.etlcpp.com
 
-Copyright(c) 2020 jwellbelove
+Copyright(c) 2020 John Wellbelove
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files(the "Software"), to deal
@@ -49,6 +49,17 @@ namespace etl
   {
   public:
 
+#if ETL_USING_CPP11
+    //*************************************************************************
+    /// Creator for in-place instantiation
+    //*************************************************************************
+    template <typename TMessage, typename TPool, typename... TArgs>
+    static shared_message create(TPool& owner, TArgs&&... args)
+    {
+      return shared_message(owner, etl::in_place_type_t<TMessage>(), etl::forward<TArgs>(args)...);
+    }
+#endif
+
     //*************************************************************************
     /// Constructor
     //*************************************************************************
@@ -59,12 +70,31 @@ namespace etl
       ETL_STATIC_ASSERT((etl::is_base_of<etl::imessage, TMessage>::value), "TMessage not derived from etl::imessage");
 
       p_rcmessage = owner.allocate(message);
-      
+
       if (p_rcmessage != ETL_NULLPTR)
       {
         p_rcmessage->get_reference_counter().set_reference_count(1U);
       }
     }
+
+#if ETL_USING_CPP11
+    //*************************************************************************
+    /// Constructor
+    //*************************************************************************
+    template <typename TPool, typename TMessage, typename... TArgs>
+    shared_message(TPool& owner, etl::in_place_type_t<TMessage>, TArgs&&... args)
+    {
+      ETL_STATIC_ASSERT((etl::is_base_of<etl::ireference_counted_message_pool, TPool>::value), "TPool not derived from etl::ireference_counted_message_pool");
+      ETL_STATIC_ASSERT((etl::is_base_of<etl::imessage, TMessage>::value), "TMessage not derived from etl::imessage");
+
+      p_rcmessage = owner.template allocate<TMessage>(etl::forward<TArgs>(args)...);
+
+      if (p_rcmessage != ETL_NULLPTR)
+      {
+        p_rcmessage->get_reference_counter().set_reference_count(1U);
+      }
+    }
+#endif
 
     //*************************************************************************
     /// Constructor
@@ -85,11 +115,11 @@ namespace etl
       p_rcmessage->get_reference_counter().increment_reference_count();
     }
 
-#if ETL_CPP11_SUPPORTED
+#if ETL_USING_CPP11
     //*************************************************************************
     /// Move constructor
     //*************************************************************************
-    shared_message(etl::shared_message&& other)
+    shared_message(etl::shared_message&& other) ETL_NOEXCEPT
       : p_rcmessage(etl::move(other.p_rcmessage))
     {
       other.p_rcmessage = ETL_NULLPTR;
@@ -117,11 +147,11 @@ namespace etl
       return *this;
     }
 
-#if ETL_CPP11_SUPPORTED
+#if ETL_USING_CPP11
     //*************************************************************************
     /// Move assignment operator
     //*************************************************************************
-    shared_message& operator =(etl::shared_message&& other)
+    shared_message& operator =(etl::shared_message&& other) ETL_NOEXCEPT
     {
       if (&other != this)
       {
@@ -194,4 +224,3 @@ namespace etl
 }
 
 #endif
-

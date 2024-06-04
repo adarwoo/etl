@@ -7,7 +7,7 @@ Embedded Template Library.
 https://github.com/ETLCPP/etl
 https://www.etlcpp.com
 
-Copyright(c) 2014 jwellbelove
+Copyright(c) 2014 John Wellbelove
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files(the "Software"), to deal
@@ -353,7 +353,7 @@ namespace etl
         p_value = p_next;
 
         ++items_allocated;
-        if (items_allocated != Max_Size)
+        if (items_allocated < Max_Size)
         {
           // Set up the pointer to the next free item
           p_next = *reinterpret_cast<char**>(p_next);
@@ -377,23 +377,48 @@ namespace etl
     //*************************************************************************
     void release_item(char* p_value)
     {
+      //// Does it belong to us?
+      //ETL_ASSERT(is_item_in_pool(p_value), ETL_ERROR(pool_object_not_in_pool));
+
+      //if (p_next != ETL_NULLPTR)
+      //{
+      //  // Point it to the current free item.
+      //  *(uintptr_t*)p_value = reinterpret_cast<uintptr_t>(p_next);
+      //}
+      //else
+      //{
+      //  // This is the only free item.
+      //  *((uintptr_t*)p_value) = 0;
+      //}
+
+      //p_next = p_value;
+
+      //--items_allocated;
+
       // Does it belong to us?
       ETL_ASSERT(is_item_in_pool(p_value), ETL_ERROR(pool_object_not_in_pool));
 
-      if (p_next != ETL_NULLPTR)
+      if (items_allocated > 0) 
       {
-        // Point it to the current free item.
-        *(uintptr_t*)p_value = reinterpret_cast<uintptr_t>(p_next);
+        if (p_next != ETL_NULLPTR)
+        {
+          // Point it to the current free item.
+          *(uintptr_t*)p_value = reinterpret_cast<uintptr_t>(p_next);
+        }
+        else
+        {
+          // This is the only free item.
+          *((uintptr_t*)p_value) = 0;
+        }
+
+        p_next = p_value;
+
+        --items_allocated;
       }
-      else
+      else 
       {
-        // This is the only free item.
-        *((uintptr_t*)p_value) = 0;
+        ETL_ASSERT_FAIL(ETL_ERROR(pool_no_allocation));
       }
-
-      p_next = p_value;
-
-      --items_allocated;
     }
 
     //*************************************************************************
@@ -406,7 +431,7 @@ namespace etl
       bool is_within_range = (distance >= 0) && (distance <= intptr_t((Item_Size * Max_Size) - Item_Size));
 
       // Modulus and division can be slow on some architectures, so only do this in debug.
-#if defined(ETL_DEBUG)
+#if ETL_IS_DEBUG_BUILD
       // Is the address on a valid object boundary?
       bool is_valid_address = ((distance % Item_Size) == 0);
 #else

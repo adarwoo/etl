@@ -5,7 +5,7 @@ Embedded Template Library.
 https://github.com/ETLCPP/etl
 https://www.etlcpp.com
 
-Copyright(c) 2016 jwellbelove
+Copyright(c) 2016 John Wellbelove
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files(the "Software"), to deal
@@ -37,6 +37,7 @@ SOFTWARE.
 #include <vector>
 #include <numeric>
 #include <functional>
+#include <unordered_map>
 
 #include "data.h"
 
@@ -89,6 +90,77 @@ namespace
 
   typedef ETL_OR_STD::pair<std::string, DC>  ElementDC;
   typedef ETL_OR_STD::pair<std::string, NDC> ElementNDC;
+
+  //***************************************************************************
+  struct CustomHashFunction
+  {
+    CustomHashFunction()
+      : id(0)
+    {
+    }
+
+    CustomHashFunction(int id_)
+      : id(id_)
+    {
+    }
+
+    size_t operator ()(uint32_t e) const
+    {
+      return size_t(e);
+    }
+
+    int id;
+  };
+
+  //***************************************************************************
+  struct CustomKeyEq
+  {
+    CustomKeyEq()
+      : id(0)
+    {
+    }
+
+    CustomKeyEq(int id_)
+      : id(id_)
+    {
+    }
+
+    size_t operator ()(uint32_t lhs, uint32_t rhs) const
+    {
+      return (lhs == rhs);
+    }
+
+    int id;
+  };
+
+  //*************************************************************************
+  // Hasher whose hash behaviour depends on provided data.
+  struct parameterized_hash
+  {
+    size_t modulus;
+
+    parameterized_hash(size_t modulus_ = 2) : modulus(modulus_){}
+
+    size_t operator()(size_t val) const
+    {
+      return val % modulus;
+    }
+  };
+
+  //*************************************************************************
+  // Equality checker whose behaviour depends on provided data.
+  struct parameterized_equal
+  {
+    size_t modulus;
+
+    // Hasher whose hash behaviour depends on provided data.
+    parameterized_equal(size_t modulus_ = 2) : modulus(modulus_){}
+
+    bool operator()(size_t lhs, size_t rhs) const
+    {
+      return (lhs % modulus) == (rhs % modulus);
+    }
+  };
 
   SUITE(test_unordered_multimap)
   {
@@ -221,9 +293,9 @@ namespace
       CHECK(data.begin() == data.end());
     }
 
-#if ETL_USING_STL && !defined(ETL_TEMPLATE_DEDUCTION_GUIDE_TESTS_DISABLED)
+#if ETL_USING_CPP17 && ETL_HAS_INITIALIZER_LIST && !defined(ETL_TEMPLATE_DEDUCTION_GUIDE_TESTS_DISABLED)
     //*************************************************************************
-    TEST(test_cpp17_deduced_constructor)
+    TEST_FIXTURE(SetupFixture, test_cpp17_deduced_constructor)
     {
       etl::unordered_multimap data{ ElementNDC(K0, N0), ElementNDC(K1, N1), ElementNDC(K2, N2), ElementNDC(K3, N3), ElementNDC(K4, N4),
                                     ElementNDC(K5, N5), ElementNDC(K6, N6), ElementNDC(K7, N7), ElementNDC(K8, N8), ElementNDC(K9, N9) };
@@ -276,7 +348,7 @@ namespace
     }
 
     //*************************************************************************
-    TEST(test_destruct_via_iunordered_multimap)
+    TEST_FIXTURE(SetupFixture, test_destruct_via_iunordered_multimap)
     {
       int current_count = NDC::get_instance_count();
 
@@ -296,11 +368,7 @@ namespace
 
       other_data = data;
 
-      bool isEqual = std::equal(data.begin(),
-                                data.end(),
-                                other_data.begin());
-
-      CHECK(isEqual);
+      CHECK(data == other_data);
     }
 
     //*************************************************************************
@@ -314,11 +382,7 @@ namespace
 
       idata2 = idata1;
 
-      bool isEqual = std::equal(data1.begin(),
-                                data1.end(),
-                                data2.begin());
-
-      CHECK(isEqual);
+      CHECK(data1 == data2);
     }
 
     //*************************************************************************
@@ -327,13 +391,11 @@ namespace
       DataNDC data(initial_data.begin(), initial_data.end());
       DataNDC other_data(data);
 
+#include "etl/private/diagnostic_self_assign_overloaded_push.h"
       other_data = other_data;
+#include "etl/private/diagnostic_pop.h"
 
-      bool isEqual = std::equal(data.begin(),
-                                data.end(),
-                                other_data.begin());
-
-      CHECK(isEqual);
+      CHECK(data == other_data);
     }
 
     //*************************************************************************
@@ -352,6 +414,7 @@ namespace
       data1.insert(DataM::value_type(std::string("4"), ItemM(4)));
 
       data2 = std::move(data1);
+      data2.insert(DataM::value_type(std::string("5"), ItemM(5)));
 
       CHECK_EQUAL(1, data2.find("1")->second.value);
       CHECK_EQUAL(2, data2.find("2")->second.value);
@@ -510,7 +573,27 @@ namespace
     }
 
     //*************************************************************************
-    TEST_FIXTURE(SetupFixture, test_erase_single)
+    TEST_FIXTURE(SetupFixture, test_erase_single_iterator)
+    {
+      DataNDC data(initial_data.begin(), initial_data.end());
+
+      DataNDC::iterator idata = data.find(K5);
+      DataNDC::iterator inext = idata;
+      ++inext;
+
+      DataNDC::iterator iafter = data.erase(idata);
+      idata = data.find(K5);
+
+      CHECK(idata == data.end());
+      CHECK(inext == iafter);
+
+      // Test that erase really does erase from the pool.
+      CHECK(!data.full());
+      CHECK(!data.empty());
+    }
+
+    //*************************************************************************
+    TEST_FIXTURE(SetupFixture, test_erase_single_const_iterator)
     {
       DataNDC data(initial_data.begin(), initial_data.end());
 
@@ -518,10 +601,10 @@ namespace
       DataNDC::const_iterator inext = idata;
       ++inext;
 
-      DataNDC::const_iterator iafter = data.erase(idata);
+      DataNDC::iterator iafter = data.erase(idata);
       idata = data.find(K5);
 
-      CHECK(idata == data.end());
+      CHECK(idata == data.cend());
       CHECK(inext == iafter);
 
       // Test that erase really does erase from the pool.
@@ -534,10 +617,10 @@ namespace
     {
       DataNDC data(initial_data.begin(), initial_data.end());
 
-      DataNDC::iterator idata = data.begin();
+      DataNDC::const_iterator idata = data.cbegin();
       std::advance(idata, 2);
 
-      DataNDC::iterator idata_end = data.begin();
+      DataNDC::const_iterator idata_end = data.cbegin();
       std::advance(idata_end, 5);
 
       data.erase(idata, idata_end);
@@ -585,10 +668,10 @@ namespace
     {
       DataNDC data(initial_data.begin(), initial_data.end());
 
-      DataNDC::iterator end = data.begin();
+      DataNDC::const_iterator end = data.cbegin();
       etl::advance(end, data.size() / 2);
 
-      auto itr = data.erase(data.begin(), end);
+      auto itr = data.erase(data.cbegin(), end);
 
       CHECK_EQUAL(initial_data.size() / 2, data.size());
       CHECK(!data.full());
@@ -601,10 +684,10 @@ namespace
     {
       DataNDC data(initial_data.begin(), initial_data.end());
 
-      DataNDC::iterator begin = data.begin();
+      DataNDC::const_iterator begin = data.cbegin();
       etl::advance(begin, data.size() / 2);
 
-      auto itr = data.erase(begin, data.end());
+      auto itr = data.erase(begin, data.cend());
 
       CHECK_EQUAL(initial_data.size() / 2, data.size());
       CHECK(!data.full());
@@ -617,14 +700,13 @@ namespace
     {
       DataNDC data(initial_data.begin(), initial_data.end());
 
-      auto itr = data.erase(data.begin(), data.end());
+      auto itr = data.erase(data.cbegin(), data.cend());
 
       CHECK_EQUAL(0U, data.size());
       CHECK(!data.full());
       CHECK(data.empty());
       CHECK(itr == data.end());
     }
-
 
     //*************************************************************************
     TEST_FIXTURE(SetupFixture, test_clear)
@@ -776,6 +858,75 @@ namespace
     }
 
     //*************************************************************************
+    TEST(test_equality_comparison_fails_when_hash_collisions_occur_582)
+    {
+      struct bad_hash
+      {
+        // Force hash collisions
+        size_t operator()(int key) const
+        {
+          return key % 4;
+        }
+      };
+
+      using etl_map = etl::unordered_multimap<int, std::string, 20, 20, bad_hash>;
+      using stl_map = std::unordered_multimap<int, std::string, bad_hash>;
+
+      std::vector<etl_map::value_type> random_keys1 =
+      {
+        {17, "17"}, {14, "14"}, { 3,  "3"}, { 7,  "7"}, { 2,  "2"},
+        { 6,  "6"}, { 9,  "9"}, { 3,  "3"}, {18, "18"}, {10, "10"},
+        { 8,  "8"}, {11, "11"}, { 4,  "4"}, { 1,  "1"}, {12, "12"},
+        {15, "15"}, {16, "16"}, { 0,  "0"}, { 5,  "5"}, {19, "19"}
+      };
+
+      std::vector<etl_map::value_type> random_keys2 =
+      {
+        { 3,  "3"}, { 6,  "6"}, { 5,  "5"}, {17, "17"}, { 2,  "2"},
+        { 7,  "7"}, { 3,  "3"}, {19, "19"}, { 8,  "8"}, {15, "15"},
+        {14, "14"}, { 0,  "0"}, {18, "18"}, { 4,  "4"}, {10, "10"},
+        { 9,  "9"}, {16, "16"}, {11, "11"}, {12, "12"}, { 1,  "1"}
+      };
+
+      // Check that the input data is valid.
+      CHECK_EQUAL(random_keys1.size(), random_keys2.size());
+      CHECK(std::is_permutation(random_keys1.begin(), random_keys1.end(), random_keys2.begin()));
+
+      //***************************************************
+      // Fill ETL
+      etl_map etlmap1;
+      etl_map etlmap2;
+
+      for (auto i : random_keys1)
+      {
+        etlmap1.insert(i);
+      }
+
+      for (auto i : random_keys2)
+      {
+        etlmap2.insert(i);
+      }
+
+      //***************************************************
+      // Fill STD
+      stl_map stdmap1;
+      stl_map stdmap2;
+
+      for (auto i : random_keys1)
+      {
+        stdmap1.insert(i);
+      }
+
+      for (auto i : random_keys2)
+      {
+        stdmap2.insert(i);
+      }
+
+      //***************************************************
+      CHECK_EQUAL((stdmap1 == stdmap2), (etlmap1 == etlmap2));
+    }
+
+    //*************************************************************************
     TEST_FIXTURE(SetupFixture, test_insert_and_erase_bug)
     {
       etl::unordered_multimap<uint32_t, char, 5> map;
@@ -803,6 +954,119 @@ namespace
       CHECK_EQUAL(2, s.size());
       CHECK_EQUAL("map[2] = c", s[0]);
       CHECK_EQUAL("map[3] = d", s[1]);
+    }
+
+    //*************************************************************************
+    TEST(test_copying_of_hash_and_key_compare_with_copy_construct)
+    {
+      CustomHashFunction chf(1);
+      CustomKeyEq        ceq(2);
+
+      etl::unordered_multimap<uint32_t, uint32_t, 5, 5, CustomHashFunction, CustomKeyEq> map1(chf, ceq);
+      etl::unordered_multimap<uint32_t, uint32_t, 5, 5, CustomHashFunction, CustomKeyEq> map2(map1);
+
+      CHECK_EQUAL(chf.id, map2.hash_function().id);
+      CHECK_EQUAL(ceq.id, map2.key_eq().id);
+    }
+
+    //*************************************************************************
+    TEST(test_copying_of_hash_and_key_compare_with_assignment)
+    {
+      CustomHashFunction chf1(1);
+      CustomKeyEq        ceq2(2);
+
+      CustomHashFunction chf3(3);
+      CustomKeyEq        ceq4(4);
+
+      etl::unordered_multimap<uint32_t, uint32_t, 5, 5, CustomHashFunction, CustomKeyEq> map1(chf1, ceq2);
+      etl::unordered_multimap<uint32_t, uint32_t, 5, 5, CustomHashFunction, CustomKeyEq> map2(chf3, ceq4);
+
+      map2.operator=(map1);
+
+      CHECK_EQUAL(chf1.id, map2.hash_function().id);
+      CHECK_EQUAL(ceq2.id, map2.key_eq().id);
+    }
+
+    //*************************************************************************
+    TEST(test_copying_of_hash_and_key_compare_with_construction_from_iterators)
+    {
+      CustomHashFunction chf1(1);
+      CustomKeyEq        ceq2(2);
+
+      using value_type = etl::unordered_multimap<uint32_t, uint32_t, 5, 5, CustomHashFunction, CustomKeyEq>::value_type;
+      std::array<value_type, 5> data =
+      {
+        value_type{1, 11},
+        value_type{2, 22},
+        value_type{3, 33},
+        value_type{4, 44},
+        value_type{5, 55}
+      };
+
+      etl::unordered_multimap<uint32_t, uint32_t, 5, 5, CustomHashFunction, CustomKeyEq> map1(data.begin(), data.end(), chf1, ceq2);
+
+      CHECK_EQUAL(chf1.id, map1.hash_function().id);
+      CHECK_EQUAL(ceq2.id, map1.key_eq().id);
+    }
+
+    //*************************************************************************
+    TEST(test_copying_of_hash_and_key_compare_with_construction_from_initializer_list)
+    {
+      CustomHashFunction chf1(1);
+      CustomKeyEq        ceq2(2);
+
+      using value_type = etl::unordered_multimap<uint32_t, uint32_t, 5, 5, CustomHashFunction, CustomKeyEq>::value_type;
+
+      etl::unordered_multimap<uint32_t, uint32_t, 5, 5, CustomHashFunction, CustomKeyEq> map1({ value_type{1, 11}, value_type{2, 22}, value_type{3, 33}, value_type{4, 44}, value_type{5, 55} }, chf1, ceq2);
+
+      CHECK_EQUAL(chf1.id, map1.hash_function().id);
+      CHECK_EQUAL(ceq2.id, map1.key_eq().id);
+    }
+
+    //*************************************************************************
+    TEST(test_iterator_value_types_bug_584)
+    {
+      using Map = etl::unordered_multimap<int, int, 1, 1>;
+      CHECK((!std::is_same<typename Map::const_iterator::value_type, typename Map::iterator::value_type>::value));
+    }
+
+    //*************************************************************************
+    TEST(test_parameterized_eq)
+    {
+      constexpr std::size_t MODULO = 4;
+      parameterized_hash hash{MODULO};
+      parameterized_equal eq{MODULO};
+      // values are equal modulo 4
+      etl::unordered_multimap<std::size_t, int, 10, 10, parameterized_hash, parameterized_equal> map;
+      map.insert(etl::make_pair(2, 20));
+      map.insert(etl::make_pair(6, 21));
+      map.insert(etl::make_pair(10, 22));
+
+      const auto& constmap = map;
+
+      CHECK_EQUAL(constmap.count(6), 3);
+      {
+        auto range = map.equal_range(6);
+        CHECK_EQUAL(std::distance(range.first, range.second), 3);
+      }
+      {
+        auto range = constmap.equal_range(6);
+        CHECK_EQUAL(std::distance(range.first, range.second), 3);
+      }
+    }
+
+    //*************************************************************************
+    TEST(test_iterator_value_types_bug_803)
+    {
+      using Map1 = etl::unordered_multimap<std::string, NDC, SIZE, 5>;
+      using Map2 = etl::unordered_multimap<std::string, NDC, 2 * SIZE, 10>;
+
+      Map1 map1(initial_data.begin(), initial_data.end());
+      Map2 map2a(initial_data.begin(), initial_data.end());
+      Map2 map2b(different_data.begin(), different_data.end());
+
+      CHECK_TRUE(map1 == map2a);
+      CHECK_FALSE(map1 == map2b);
     }
   };
 }

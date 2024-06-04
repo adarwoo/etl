@@ -7,7 +7,7 @@ Embedded Template Library.
 https://github.com/ETLCPP/etl
 https://www.etlcpp.com
 
-Copyright(c) 2016 jwellbelove
+Copyright(c) 2016 John Wellbelove
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files(the "Software"), to deal
@@ -35,7 +35,7 @@ SOFTWARE.
 #include "type_traits.h"
 
 #if defined(ETL_IN_UNIT_TEST) || ETL_USING_STL
-  #if ETL_CPP11_SUPPORTED
+  #if ETL_USING_CPP11
     #include <utility>
   #else
     #include <algorithm>
@@ -47,7 +47,7 @@ SOFTWARE.
 
 namespace etl
 {
-#if ETL_CPP11_SUPPORTED
+#if ETL_USING_CPP11
   //******************************************************************************
   template <typename T>
   constexpr typename etl::remove_reference<T>::type&& move(T&& t) ETL_NOEXCEPT
@@ -65,17 +65,79 @@ namespace etl
   template <typename T>
   constexpr T&& forward(typename etl::remove_reference<T>::type&& t) ETL_NOEXCEPT
   {
+    ETL_STATIC_ASSERT(!etl::is_lvalue_reference<T>::value, "Invalid rvalue to lvalue conversion");
     return static_cast<T&&>(t);
   }
+
+  //******************************************************************************
+  /// See std::forward_like https://en.cppreference.com/w/cpp/utility/forward_like
+  /// Returns a reference to x which has similar properties to T&&.
+  ///\return
+  /// If etl::remove_reference_t<T> is const then returns a const reference if U is an lvalue, otherwise a const rvalue reference.
+  /// If etl::remove_reference_t<T> is not const then returns a reference if U is an lvalue, otherwise an rvalue reference.
+  //******************************************************************************
+  //***********************************
+  /// T is const & lvalue.
+  //***********************************
+  template <typename T, typename U>
+  ETL_NODISCARD
+  ETL_CONSTEXPR
+  etl::enable_if_t<etl::is_const<etl::remove_reference_t<T>>::value && etl::is_lvalue_reference<T>::value, const etl::remove_reference_t<U>&>
+    forward_like(U&& u) ETL_NOEXCEPT
+  {
+    return static_cast<const etl::remove_reference_t<U>&>(u);
+  }
+
+  //***********************************
+  /// T is const & rvalue.
+  //***********************************
+  template <typename T, typename U>
+  ETL_NODISCARD
+  ETL_CONSTEXPR
+  etl::enable_if_t<etl::is_const<etl::remove_reference_t<T>>::value && !etl::is_lvalue_reference<T>::value, const etl::remove_reference_t<U>&&>
+    forward_like(U&& u) ETL_NOEXCEPT
+  {
+    return static_cast<const etl::remove_reference_t<U>&&>(u);
+  }
+
+  //***********************************
+  /// T is not const & lvalue.
+  //***********************************
+  template <typename T, typename U>
+  ETL_NODISCARD
+  ETL_CONSTEXPR
+  etl::enable_if_t<!etl::is_const<etl::remove_reference_t<T>>::value && etl::is_lvalue_reference<T>::value, etl::remove_reference_t<U>&>
+    forward_like(U&& u) ETL_NOEXCEPT
+  {
+    return static_cast<etl::remove_reference_t<U>&>(u);
+  }
+
+  //***********************************
+  /// T is not const & rvalue.
+  //***********************************
+  template <typename T, typename U>
+  ETL_NODISCARD
+  ETL_CONSTEXPR
+  etl::enable_if_t<!etl::is_const<etl::remove_reference_t<T>>::value && !etl::is_lvalue_reference<T>::value, etl::remove_reference_t<U>&&>
+    forward_like(U&& u) ETL_NOEXCEPT
+  {
+    return static_cast<etl::remove_reference_t<U>&&>(u);
+  }
+
+  //***********************************
+  // Defines the type that forward_like would cast to.
+  //***********************************
+  template <typename T, typename U>
+  using forward_like_t = decltype(etl::forward_like<T>(etl::declval<U&>()));
 #endif
 
   // We can't have std::swap and etl::swap templates coexisting in the unit tests
-  // as the compiler will be unable to decide of which one to use, due to ADL.
+  // as the compiler will be unable to decide which one to use, due to ADL.
 #if ETL_NOT_USING_STL && !defined(ETL_IN_UNIT_TEST)
   //***************************************************************************
   // swap
   template <typename T>
-  void swap(T& a, T& b) ETL_NOEXCEPT
+  ETL_CONSTEXPR14 void swap(T& a, T& b) ETL_NOEXCEPT
   {
     T temp(ETL_MOVE(a));
     a = ETL_MOVE(b);
@@ -83,7 +145,7 @@ namespace etl
   }
 
   template< class T, size_t N >
-  void swap(T(&a)[N], T(&b)[N]) ETL_NOEXCEPT
+  ETL_CONSTEXPR14 void swap(T(&a)[N], T(&b)[N]) ETL_NOEXCEPT
   {
     for (size_t i = 0UL; i < N; ++i)
     {
@@ -92,32 +154,46 @@ namespace etl
   }
 #endif
 
-  //******************************************************************************
+  //***************************************************************************
+  ///\brief pair holds two objects of arbitrary type
+  ///
+  ///\tparam T1, T2 The types of the elements that the pair stores
+  //***************************************************************************
   template <typename T1, typename T2>
   struct pair
   {
-    typedef T1 first_type;
-    typedef T2 second_type;
+    typedef T1 first_type;   ///< @c first_type is the first bound type
+    typedef T2 second_type;  ///< @c second_type is the second bound type
 
-    T1 first;
-    T2 second;
+    T1 first;   ///< @c first is a copy of the first object
+    T2 second;  ///< @c second is a copy of the second object
 
-    /// Default constructor
+    //***************************************************************************
+    ///\brief Default constructor
+    ///
+    /// The default constructor creates @c first and @c second using their respective default constructors.
+    //***************************************************************************
     ETL_CONSTEXPR pair()
       : first(T1())
       , second(T2())
     {
     }
 
-    /// Constructor from parameters
+    //***************************************************************************
+    ///\brief Constructor from parameters
+    ///
+    /// Two objects may be passed to a @c pair constructor to be copied.
+    //***************************************************************************
     ETL_CONSTEXPR14 pair(const T1& a, const T2& b)
       : first(a)
       , second(b)
     {
     }
 
-#if ETL_CPP11_SUPPORTED
-    /// Move constructor from parameters
+#if ETL_USING_CPP11
+    //***************************************************************************
+    ///\brief Move constructor from parameters.
+    //***************************************************************************
     template <typename U1, typename U2>
     ETL_CONSTEXPR14 pair(U1&& a, U2&& b)
       : first(etl::forward<U1>(a))
@@ -126,7 +202,11 @@ namespace etl
     }
 #endif
 
-    /// Copy constructor
+    //***************************************************************************
+    ///\brief Copy constructor
+    ///
+    /// There is also a templated copy constructor for the @c pair class itself.
+    //***************************************************************************
     template <typename U1, typename U2>
     ETL_CONSTEXPR14 pair(const pair<U1, U2>& other)
       : first(other.first)
@@ -141,7 +221,7 @@ namespace etl
     {
     }
 
-#if ETL_CPP11_SUPPORTED
+#if ETL_USING_CPP11
     /// Move constructor
     template <typename U1, typename U2>
     ETL_CONSTEXPR14 pair(pair<U1, U2>&& other)
@@ -167,7 +247,7 @@ namespace etl
     {
     }
 
-#if ETL_CPP11_SUPPORTED
+#if ETL_USING_CPP11
     /// Constructing to etl::pair
     template <typename U1, typename U2>
     pair(std::pair<U1, U2>&& other)
@@ -203,7 +283,7 @@ namespace etl
       return *this;
     }
 
-#if ETL_CPP11_SUPPORTED
+#if ETL_USING_CPP11
     pair<T1, T2>& operator =(pair<T1, T2>&& other)
     {
       first = etl::forward<T1>(other.first);
@@ -223,8 +303,15 @@ namespace etl
 #endif
   };
 
-  //******************************************************************************
-#if ETL_CPP11_SUPPORTED
+  //***************************************************************************
+  ///\brief A convenience wrapper for creating a @ref pair from two objects.
+  ///
+  ///\param a The first object.
+  ///\param b The second object.
+  ///
+  ///\return A newly-constructed @ref pair object of the appropriate type.
+  //***************************************************************************
+#if ETL_USING_CPP11
   template <typename T1, typename T2>
   inline pair<T1, T2> make_pair(T1&& a, T2&& b)
   {
@@ -245,13 +332,16 @@ namespace etl
     a.swap(b);
   }
 
-  //******************************************************************************
+  ///  Two pairs of the same type are equal iff their members are equal.
   template <typename T1, typename T2>
   inline bool operator ==(const pair<T1, T2>& a, const pair<T1, T2>& b)
   {
-    return (a.first == b.first) && (a.second == b.second);
+#include "private/diagnostic_float_equal_push.h"
+    return (a.first == b.first) && !(a.second < b.second) && !(a.second > b.second);
+#include "private/diagnostic_pop.h"
   }
 
+  /// Uses @c operator== to find the result.
   template <typename T1, typename T2>
   inline bool operator !=(const pair<T1, T2>& a, const pair<T1, T2>& b)
   {
@@ -265,23 +355,96 @@ namespace etl
       (!(b.first < a.first) && (a.second < b.second));
   }
 
+  /// Uses @c operator< to find the result.
   template <typename T1, typename T2>
   inline bool operator >(const pair<T1, T2>& a, const pair<T1, T2>& b)
   {
     return (b < a);
   }
 
+  /// Uses @c operator< to find the result.
   template <typename T1, typename T2>
   inline bool operator <=(const pair<T1, T2>& a, const pair<T1, T2>& b)
   {
     return !(b < a);
   }
 
+  /// Uses @c operator< to find the result.
   template <typename T1, typename T2>
   inline bool operator >=(const pair<T1, T2>& a, const pair<T1, T2>& b)
   {
     return !(a < b);
   }
+
+  //***************************************************************************
+  ///\brief Functor to select @ref pair::first
+  ///
+  ///\ref select1st is a functor object that takes a single argument, a @ref pair, and returns the @ref pair::first element.
+  ///
+  ///\b Example
+  ///\snippet test_utility.cpp test_select1st_example
+  ///
+  ///\tparam TPair The function object's argument type.
+  ///
+  ///\see select2nd
+  //***************************************************************************
+  template <typename TPair>
+  struct select1st
+  {
+    typedef typename TPair::first_type type;  ///< type of member @ref pair::first.
+
+    //***************************************************************************
+    ///\brief Function call that return @c p.first.
+    ///\return a reference to member @ref pair::first of the @c pair `p`
+    //***************************************************************************
+    type& operator()(TPair& p) const
+    {
+      return p.first;
+    }
+
+    //***************************************************************************
+    ///\copydoc operator()(TPair&)const
+    //
+    const type& operator()(const TPair& p) const
+    {
+      return p.first;
+    }
+  };
+
+  //***************************************************************************
+  ///\brief Functor to select @ref pair::second
+  ///
+  ///\ref select2nd is a functor object that takes a single argument, a @ref pair, and returns the @ref pair::second element.
+  ///
+  ///\b Example
+  ///\snippet test_utility.cpp test_select2nd_example
+  ///
+  ///\tparam TPair The function object's argument type.
+  ///
+  ///\see select1st
+  //***************************************************************************
+  template <typename TPair>
+  struct select2nd
+  {
+    typedef typename TPair::second_type type;  ///< type of member @ref pair::second.
+
+    //***************************************************************************
+    ///\brief Function call. The return value is `p.second`.
+    ///\return a reference to member `second` of the pair `p`.
+    //***************************************************************************
+    type& operator()(TPair& p) const
+    {
+      return p.second;
+    }
+
+    //***************************************************************************
+    ///\copydoc operator()(TPair&)const
+    //***************************************************************************
+    const type& operator()(const TPair& p) const
+    {
+      return p.second;
+    }
+  };
 
 #if ETL_NOT_USING_STL || ETL_CPP14_NOT_SUPPORTED
   //***************************************************************************
@@ -325,7 +488,7 @@ namespace etl
   //***************************************************************************
   /// integer_sequence
   //***************************************************************************
-#if ETL_CPP11_SUPPORTED
+#if ETL_USING_CPP11
   template <typename T, T... Integers>
   class integer_sequence
   {
@@ -410,32 +573,105 @@ namespace etl
     explicit ETL_CONSTEXPR in_place_t() {}
   };
 
-#if ETL_CPP17_SUPPORTED
-  inline constexpr in_place_t in_place;
+#if ETL_USING_CPP17
+  inline constexpr in_place_t in_place{};
 #endif
   
   //*************************
   template <typename T> struct in_place_type_t 
   {
-    explicit ETL_CONSTEXPR in_place_type_t(){};
+    explicit ETL_CONSTEXPR in_place_type_t() {}
   };
 
-#if ETL_CPP17_SUPPORTED
+#if ETL_USING_CPP17
   template <typename T>
-  inline constexpr in_place_type_t<T> in_place_type;
+  inline constexpr in_place_type_t<T> in_place_type{};
 #endif
 
   //*************************
-  template <std::size_t I> struct in_place_index_t 
+  template <size_t I> struct in_place_index_t 
   {
     explicit ETL_CONSTEXPR in_place_index_t() {}
   };
 
-#if ETL_CPP17_SUPPORTED
-  template <std::size_t I>
-  inline constexpr in_place_index_t<I> in_place_index;
+#if ETL_USING_CPP17
+  template <size_t I>
+  inline constexpr in_place_index_t<I> in_place_index{};
+#endif
+
+#if ETL_USING_CPP11
+  //*************************************************************************
+  /// A function wrapper for free/global functions.
+  //*************************************************************************
+  template <typename TReturn, typename... TParams>
+  class functor
+  {
+  public:
+
+    //*********************************
+    /// Constructor.
+    //*********************************
+    constexpr functor(TReturn(*ptr_)(TParams...))
+      : ptr(ptr_)
+    {
+    }
+
+    //*********************************
+    /// Const function operator.
+    //*********************************
+    constexpr TReturn operator()(TParams... args) const
+    {
+      return ptr(etl::forward<TParams>(args)...);
+    }
+
+  private:
+
+    /// The pointer to the function.
+    TReturn(*ptr)(TParams...);
+  };
+#endif
+
+#if ETL_USING_CPP11
+  //*****************************************************************************
+  // A wrapper for a member function
+  // Creates a static member function that calls the specified member function.
+  //*****************************************************************************
+  template <typename T>
+  class member_function_wrapper;
+
+  template <typename TReturn, typename... TParams>
+  class member_function_wrapper<TReturn(TParams...)>
+  {
+  public:
+
+    template <typename T, T& Instance, TReturn(T::* Method)(TParams...)>
+    static constexpr TReturn function(TParams... params)
+    {
+      return (Instance.*Method)(etl::forward<TParams>(params)...);
+    }
+  };
+#endif
+
+#if ETL_USING_CPP11
+  //*****************************************************************************
+  // A wrapper for a functor
+  // Creates a static member function that calls the specified functor.
+  //*****************************************************************************
+  template <typename T>
+  class functor_wrapper;
+
+  template <typename TReturn, typename... TParams>
+  class functor_wrapper<TReturn(TParams...)>
+  {
+  public:
+
+    template <typename TFunctor, TFunctor& Instance>
+    static constexpr TReturn function(TParams... params)
+    {
+      return Instance(etl::forward<TParams>(params)...);
+    }
+  };
 #endif
 }
 
 #endif
-

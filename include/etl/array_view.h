@@ -7,7 +7,7 @@ Embedded Template Library.
 https://github.com/ETLCPP/etl
 https://www.etlcpp.com
 
-Copyright(c) 2017 jwellbelove
+Copyright(c) 2017 John Wellbelove
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files(the "Software"), to deal
@@ -33,14 +33,18 @@ SOFTWARE.
 
 #include "platform.h"
 #include "memory.h"
+#include "array.h"
 #include "iterator.h"
 #include "error_handler.h"
 #include "exception.h"
 #include "nullptr.h"
 #include "hash.h"
 #include "algorithm.h"
-#include "memory.h"
 #include "type_traits.h"
+
+#if ETL_USING_STL && ETL_USING_CPP11
+#include <array>
+#endif
 
 ///\defgroup array array
 /// A wrapper for arrays
@@ -125,16 +129,110 @@ namespace etl
     {
     }
 
+#if ETL_USING_CPP11
     //*************************************************************************
-    /// Construct from std::array or etl::array or other type that supports
-    /// data() and size() member functions.
+    /// Construct from etl::array.
     //*************************************************************************
-    template <typename TArray>
-    ETL_CONSTEXPR array_view(TArray& a)
-      : mbegin(a.data()),
-        mend(a.data() + a.size())
+    template <typename U, size_t N, typename = typename etl::enable_if<etl::is_same<etl::remove_cv_t<T>, etl::remove_cv_t<U>>::value, void>::type>
+    ETL_CONSTEXPR array_view(etl::array<U, N>& a) ETL_NOEXCEPT
+      : mbegin(a.data())
+      , mend(a.data() + a.size())
     {
     }
+
+    //*************************************************************************
+    /// Construct from etl::array.
+    //*************************************************************************
+    template <typename U, size_t N, typename = typename etl::enable_if<etl::is_same<etl::remove_cv_t<T>, etl::remove_cv_t<U>>::value, void>::type>
+    ETL_CONSTEXPR array_view(const etl::array<U, N>& a) ETL_NOEXCEPT
+      : mbegin(a.data())
+      , mend(a.data() + a.size())
+    {
+    }
+#else
+    //*************************************************************************
+    /// Construct from etl::array.
+    //*************************************************************************
+    template <typename U, size_t N>
+    ETL_CONSTEXPR array_view(etl::array<U, N>& a, typename etl::enable_if<etl::is_same<typename etl::remove_cv<T>::type, typename etl::remove_cv<U>::type>::value, void>::type* = 0) ETL_NOEXCEPT
+      : mbegin(a.data())
+      , mend(a.data() + a.size())
+    {
+    }
+
+    //*************************************************************************
+    /// Construct from etl::array.
+    //*************************************************************************
+    template <typename U, size_t N>
+    ETL_CONSTEXPR array_view(const etl::array<U, N>& a, typename etl::enable_if<etl::is_same<typename etl::remove_cv<T>::type, typename etl::remove_cv<U>::type>::value, void>::type* = 0) ETL_NOEXCEPT
+      : mbegin(a.data())
+      , mend(a.data() + a.size())
+    {
+    }
+#endif
+
+#if ETL_USING_STL && ETL_USING_CPP11
+    //*************************************************************************
+    /// Construct from std::array.
+    //*************************************************************************
+    template <typename U, size_t N, typename = typename etl::enable_if<etl::is_same<etl::remove_cv_t<T>, etl::remove_cv_t<U>>::value, void>::type>
+    ETL_CONSTEXPR array_view(std::array<U, N>& a) ETL_NOEXCEPT
+      : mbegin(a.data())
+      , mend(a.data() + a.size())
+    {
+    }
+
+    //*************************************************************************
+    /// Construct from std::array.
+    //*************************************************************************
+    template <typename U, size_t N, typename = typename etl::enable_if<etl::is_same<etl::remove_cv_t<T>, etl::remove_cv_t<U>>::value, void>::type>
+    ETL_CONSTEXPR array_view(const std::array<U, N>& a) ETL_NOEXCEPT
+      : mbegin(a.data())
+      , mend(a.data() + a.size())
+    {
+    }
+#endif
+
+#if ETL_USING_CPP11
+    //*************************************************************************
+    /// Construct from a container or other type that supports
+    /// data() and size() member functions.
+    //*************************************************************************
+    template <typename TContainer, typename = typename etl::enable_if<!etl::is_pointer<etl::remove_reference_t<TContainer>>::value &&
+                                                                      !etl::is_array<etl::remove_reference_t<TContainer>>::value &&
+                                                                      etl::is_same<etl::remove_cv_t<T>, etl::remove_cv_t<typename etl::remove_reference_t<TContainer>::value_type>>::value, void>::type>
+      ETL_CONSTEXPR array_view(TContainer&& a) ETL_NOEXCEPT
+      : mbegin(a.data())
+      , mend(a.data() + a.size())
+    {
+    }
+#else
+    //*************************************************************************
+    /// Construct from a container or other type that supports
+    /// data() and size() member functions.
+    //*************************************************************************
+    template <typename TContainer>
+    ETL_CONSTEXPR array_view(TContainer& a, typename etl::enable_if<!etl::is_pointer<typename etl::remove_reference<TContainer>::type>::value &&
+                                                                    !etl::is_array<TContainer>::value &&
+                                                                    etl::is_same<typename etl::remove_cv<T>::type, typename etl::remove_cv<typename etl::remove_reference<TContainer>::type::value_type>::type>::value, void>::type* = 0) ETL_NOEXCEPT
+      : mbegin(a.data())
+      , mend(a.data() + a.size())
+    {
+    }
+
+    //*************************************************************************
+    /// Construct from a container or other type that supports
+    /// data() and size() member functions.
+    //*************************************************************************
+    template <typename TContainer>
+    ETL_CONSTEXPR array_view(const TContainer& a, typename etl::enable_if<!etl::is_pointer<typename etl::remove_reference<TContainer>::type>::value &&
+                                                                          !etl::is_array<TContainer>::value &&
+                                                                          etl::is_same<typename etl::remove_cv<T>::type, typename etl::remove_cv<typename etl::remove_reference<TContainer>::type::value_type>::type>::value, void>::type* = 0) ETL_NOEXCEPT
+      : mbegin(a.data())
+      , mend(a.data() + a.size())
+    {
+    }
+#endif
 
     //*************************************************************************
     /// Construct from iterators
@@ -160,10 +258,10 @@ namespace etl
     //*************************************************************************
     /// Construct from C array
     //*************************************************************************
-    template<size_t ARRAY_SIZE>
-    ETL_CONSTEXPR array_view(T(&begin_)[ARRAY_SIZE])
+    template<size_t Array_Size>
+    ETL_CONSTEXPR array_view(T(&begin_)[Array_Size])
       : mbegin(begin_),
-        mend(begin_ + ARRAY_SIZE)
+        mend(begin_ + Array_Size)
     {
     }
 
@@ -323,7 +421,7 @@ namespace etl
     //*************************************************************************
     /// Returns <b>true</b> if the array size is zero.
     //*************************************************************************
-    bool empty() const
+    ETL_CONSTEXPR bool empty() const
     {
       return (mbegin == mend);
     }
@@ -331,15 +429,15 @@ namespace etl
     //*************************************************************************
     /// Returns the size of the array.
     //*************************************************************************
-    size_t size() const
+    ETL_CONSTEXPR size_t size() const
     {
-      return (mend - mbegin);
+      return static_cast<size_t>(mend - mbegin);
     }
 
     //*************************************************************************
     /// Returns the maximum possible size of the array.
     //*************************************************************************
-    size_t max_size() const
+    ETL_CONSTEXPR size_t max_size() const
     {
       return size();
     }
@@ -449,6 +547,14 @@ namespace etl
     }
 
     //*************************************************************************
+    /// Fills the array.
+    //*************************************************************************
+    void fill(const T& value)
+    {
+      etl::fill(begin(), end(), value);
+    }
+
+    //*************************************************************************
     /// Equality for array views.
     //*************************************************************************
     friend bool operator == (const array_view<T>& lhs, const array_view<T>& rhs)
@@ -506,7 +612,7 @@ namespace etl
   //*************************************************************************
   /// Template deduction guides.
   //*************************************************************************
-#if ETL_CPP17_SUPPORTED
+#if ETL_USING_CPP17
   template <typename TArray>
   array_view(TArray& a) 
     -> array_view<typename TArray::value_type>;
@@ -524,14 +630,14 @@ namespace etl
   //*************************************************************************
   /// Hash function.
   //*************************************************************************
-#if ETL_8BIT_SUPPORT
+#if ETL_USING_8BIT_TYPES
   template <typename T>
   struct hash<etl::array_view<T> >
   {
     size_t operator()(const etl::array_view<T>& view) const
     {
-      return etl::private_hash::generic_hash<size_t>(reinterpret_cast<const uint8_t*>(&view[0]),
-                                                     reinterpret_cast<const uint8_t*>(&view[view.size()]));
+      return etl::private_hash::generic_hash<size_t>(reinterpret_cast<const uint8_t*>(view.data()),
+                                                     reinterpret_cast<const uint8_t*>(view.data() + view.size()));
     }
   };
 #endif

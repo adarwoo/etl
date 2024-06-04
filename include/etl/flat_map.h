@@ -7,7 +7,7 @@ Embedded Template Library.
 https://github.com/ETLCPP/etl
 https://www.etlcpp.com
 
-Copyright(c) 2015 jwellbelove
+Copyright(c) 2015 John Wellbelove
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files(the "Software"), to deal
@@ -35,11 +35,12 @@ SOFTWARE.
 #include "reference_flat_map.h"
 #include "pool.h"
 #include "placement_new.h"
-
-#if ETL_CPP11_SUPPORTED && ETL_NOT_USING_STLPORT && ETL_USING_STL
-  #include <initializer_list>
-#endif
+#include "nth_type.h"
 #include "utility.h"
+#include "type_traits.h"
+#include "initializer_list.h"
+
+#include "private/comparator_is_transparent.h"
 
 //*****************************************************************************
 ///\defgroup flat_map flat_map
@@ -75,12 +76,19 @@ namespace etl
     typedef TKeyCompare       key_compare;
     typedef value_type&       reference;
     typedef const value_type& const_reference;
-#if ETL_CPP11_SUPPORTED
+#if ETL_USING_CPP11
     typedef value_type&&      rvalue_reference;
 #endif
     typedef value_type*       pointer;
     typedef const value_type* const_pointer;
     typedef size_t            size_type;
+
+    typedef const key_type&    const_key_reference;
+#if ETL_USING_CPP11
+    typedef key_type&&         rvalue_key_reference;
+#endif
+    typedef mapped_type&       mapped_reference;
+    typedef const mapped_type& const_mapped_reference;
 
     typedef typename refmap_t::iterator       iterator;
     typedef typename refmap_t::const_iterator const_iterator;
@@ -88,10 +96,6 @@ namespace etl
     typedef ETL_OR_STD::reverse_iterator<iterator>       reverse_iterator;
     typedef ETL_OR_STD::reverse_iterator<const_iterator> const_reverse_iterator;
     typedef typename etl::iterator_traits<iterator>::difference_type difference_type;
-
-  protected:
-
-    typedef const key_type& key_parameter_t;
 
   private:
 
@@ -225,14 +229,42 @@ namespace etl
       return refmap_t::crend();
     }
 
+#if ETL_USING_CPP11
     //*********************************************************************
     /// Returns a reference to the value at index 'key'
     ///\param i The index.
     ///\return A reference to the value at index 'key'
     //*********************************************************************
-    mapped_type& operator [](key_parameter_t key)
+    mapped_reference operator [](rvalue_key_reference key)
     {
-      return insert(ETL_OR_STD::make_pair(key, mapped_type())).first->second;
+      iterator i_element = lower_bound(key);
+
+      // Doesn't already exist?
+      if ((i_element == end()) || compare(key, i_element->first))
+      {
+        insert_default_value(i_element, etl::move(key));
+      }
+
+      return i_element->second;
+    }
+#endif
+
+    //*********************************************************************
+    /// Returns a reference to the value at index 'key'
+    ///\param i The index.
+    ///\return A reference to the value at index 'key'
+    //*********************************************************************
+    mapped_reference operator [](const_key_reference key)
+    {
+      iterator i_element = lower_bound(key);
+
+      // Doesn't already exist?
+      if ((i_element == end()) || compare(key, i_element->first))
+      {
+        insert_default_value(i_element, key);
+      }
+
+      return i_element->second;
     }
 
     //*********************************************************************
@@ -241,10 +273,19 @@ namespace etl
     ///\param i The index.
     ///\return A reference to the value at index 'key'
     //*********************************************************************
-    mapped_type& at(key_parameter_t key)
+    mapped_reference at(const_key_reference key)
     {
       return refmap_t::at(key);
     }
+
+#if ETL_USING_CPP11
+    //*********************************************************************
+    template <typename K, typename KC = TKeyCompare, etl::enable_if_t<comparator_is_transparent<KC>::value, int> = 0>
+    mapped_reference at(const K& key)
+    {
+      return refmap_t::at(key);
+    }
+#endif
 
     //*********************************************************************
     /// Returns a const reference to the value at index 'key'
@@ -252,10 +293,19 @@ namespace etl
     ///\param i The index.
     ///\return A const reference to the value at index 'key'
     //*********************************************************************
-    const mapped_type& at(key_parameter_t key) const
+    const_mapped_reference at(const_key_reference key) const
     {
       return refmap_t::at(key);
     }
+
+#if ETL_USING_CPP11
+    //*********************************************************************
+    template <typename K, typename KC = TKeyCompare, etl::enable_if_t<comparator_is_transparent<KC>::value, int> = 0>
+    const_mapped_reference at(const K& key) const
+    {
+      return refmap_t::at(key);
+    }
+#endif
 
     //*********************************************************************
     /// Assigns values to the flat_map.
@@ -267,7 +317,7 @@ namespace etl
     template <typename TIterator>
     void assign(TIterator first, TIterator last)
     {
-#if defined(ETL_DEBUG)
+#if ETL_IS_DEBUG_BUILD
       difference_type d = etl::distance(first, last);
       ETL_ASSERT(d <= difference_type(capacity()), ETL_ERROR(flat_map_full));
 #endif
@@ -276,7 +326,8 @@ namespace etl
 
       while (first != last)
       {
-        insert(*first++);
+        insert(*first);
+        ++first;
       }
     }
 
@@ -294,18 +345,13 @@ namespace etl
       // Doesn't already exist?
       if ((i_element == end()) || compare(value.first, i_element->first))
       {
-        ETL_ASSERT(!refmap_t::full(), ETL_ERROR(flat_map_full));
-
-        value_type* pvalue = storage.allocate<value_type>();
-        ::new (pvalue) value_type(value);
-        ETL_INCREMENT_DEBUG_COUNT
-        result = refmap_t::insert_at(i_element, *pvalue);
+        result = insert_value(i_element, value);
       }
 
       return result;
     }
 
-#if ETL_CPP11_SUPPORTED
+#if ETL_USING_CPP11
     //*********************************************************************
     /// Moves a value to the flat_map.
     /// If asserts or exceptions are enabled, emits flat_map_full if the flat_map is already full.
@@ -320,12 +366,8 @@ namespace etl
       // Doesn't already exist?
       if ((i_element == end()) || compare(value.first, i_element->first))
       {
-        ETL_ASSERT(!refmap_t::full(), ETL_ERROR(flat_map_full));
-
-        value_type* pvalue = storage.allocate<value_type>();
-        ::new (pvalue) value_type(etl::move(value));
-        ETL_INCREMENT_DEBUG_COUNT
-        result = refmap_t::insert_at(i_element, *pvalue);
+        //result = insert_value(i_element, etl::move(value.first), etl::move(value.second));
+        result = insert_value(i_element, etl::move(value));
       }
 
       return result;
@@ -338,19 +380,19 @@ namespace etl
     ///\param position The position to insert at.
     ///\param value    The value to insert.
     //*********************************************************************
-    iterator insert(iterator position, const_reference value)
+    iterator insert(const_iterator /*position*/, const_reference value)
     {
       return insert(value).first;
     }
 
-#if ETL_CPP11_SUPPORTED
+#if ETL_USING_CPP11
     //*********************************************************************
     /// Moves a value to the flat_map.
     /// If asserts or exceptions are enabled, emits flat_map_full if the flat_map is already full.
     ///\param position The position to insert at.
     ///\param value    The value to insert.
     //*********************************************************************
-    iterator insert(iterator position, rvalue_reference value)
+    iterator insert(const_iterator /*position*/, rvalue_reference value)
     {
       return insert(etl::move(value)).first;
     }
@@ -368,7 +410,8 @@ namespace etl
     {
       while (first != last)
       {
-        insert(*first++);
+        insert(*first);
+        ++first;
       }
     }
 
@@ -380,12 +423,12 @@ namespace etl
       return emplace(value.first, value.second);
     }
 
-#if ETL_CPP11_SUPPORTED && ETL_NOT_USING_STLPORT
+#if ETL_USING_CPP11 && ETL_NOT_USING_STLPORT
     //*************************************************************************
     /// Emplaces a value to the map.
     //*************************************************************************
     template <typename ... Args>
-    ETL_OR_STD::pair<iterator, bool> emplace(const key_type& key, Args && ... args)
+    ETL_OR_STD::pair<iterator, bool> emplace(const_key_reference key, Args && ... args)
     {
       ETL_ASSERT(!full(), ETL_ERROR(flat_map_full));
 
@@ -401,7 +444,7 @@ namespace etl
       // Doesn't already exist?
       if ((i_element == end()) || compare(key, i_element->first))
       {
-        ETL_INCREMENT_DEBUG_COUNT
+        ETL_INCREMENT_DEBUG_COUNT;
         result = refmap_t::insert_at(i_element, *pvalue);
       }
       else
@@ -419,7 +462,7 @@ namespace etl
     /// Emplaces a value to the map.
     //*************************************************************************
     template <typename T1>
-    ETL_OR_STD::pair<iterator, bool> emplace(const key_type& key, const T1& value1)
+    ETL_OR_STD::pair<iterator, bool> emplace(const_key_reference key, const T1& value1)
     {
       ETL_ASSERT(!full(), ETL_ERROR(flat_map_full));
 
@@ -435,7 +478,7 @@ namespace etl
       // Doesn't already exist?
       if ((i_element == end()) || compare(key, i_element->first))
       {
-        ETL_INCREMENT_DEBUG_COUNT
+        ETL_INCREMENT_DEBUG_COUNT;
         result = refmap_t::insert_at(i_element, *pvalue);
       }
       else
@@ -451,7 +494,7 @@ namespace etl
     /// Emplaces a value to the map.
     //*************************************************************************
     template <typename T1, typename T2>
-    ETL_OR_STD::pair<iterator, bool> emplace(const key_type& key, const T1& value1, const T2& value2)
+    ETL_OR_STD::pair<iterator, bool> emplace(const_key_reference key, const T1& value1, const T2& value2)
     {
       ETL_ASSERT(!full(), ETL_ERROR(flat_map_full));
 
@@ -467,7 +510,7 @@ namespace etl
       // Doesn't already exist?
       if ((i_element == end()) || compare(key, i_element->first))
       {
-        ETL_INCREMENT_DEBUG_COUNT
+        ETL_INCREMENT_DEBUG_COUNT;
         result = refmap_t::insert_at(i_element, *pvalue);
       }
       else
@@ -483,7 +526,7 @@ namespace etl
     /// Emplaces a value to the map.
     //*************************************************************************
     template <typename T1, typename T2, typename T3>
-    ETL_OR_STD::pair<iterator, bool> emplace(const key_type& key, const T1& value1, const T2& value2, const T3& value3)
+    ETL_OR_STD::pair<iterator, bool> emplace(const_key_reference key, const T1& value1, const T2& value2, const T3& value3)
     {
       ETL_ASSERT(!full(), ETL_ERROR(flat_map_full));
 
@@ -499,7 +542,7 @@ namespace etl
       // Doesn't already exist?
       if ((i_element == end()) || compare(key, i_element->first))
       {
-        ETL_INCREMENT_DEBUG_COUNT
+        ETL_INCREMENT_DEBUG_COUNT;
         result = refmap_t::insert_at(i_element, *pvalue);
       }
       else
@@ -515,7 +558,7 @@ namespace etl
     /// Emplaces a value to the map.
     //*************************************************************************
     template <typename T1, typename T2, typename T3, typename T4>
-    ETL_OR_STD::pair<iterator, bool> emplace(const key_type& key, const T1& value1, const T2& value2, const T3& value3, const T4& value4)
+    ETL_OR_STD::pair<iterator, bool> emplace(const_key_reference key, const T1& value1, const T2& value2, const T3& value3, const T4& value4)
     {
       ETL_ASSERT(!full(), ETL_ERROR(flat_map_full));
 
@@ -531,7 +574,7 @@ namespace etl
       // Doesn't already exist?
       if ((i_element == end()) || compare(key, i_element->first))
       {
-        ETL_INCREMENT_DEBUG_COUNT
+        ETL_INCREMENT_DEBUG_COUNT;
         result = refmap_t::insert_at(i_element, *pvalue);
       }
       else
@@ -550,7 +593,7 @@ namespace etl
     ///\param key The key to erase.
     ///\return The number of elements erased. 0 or 1.
     //*********************************************************************
-    size_t erase(key_parameter_t key)
+    size_t erase(const_key_reference key)
     {
       iterator i_element = find(key);
 
@@ -563,21 +606,55 @@ namespace etl
         i_element->~value_type();
         storage.release(etl::addressof(*i_element));
         refmap_t::erase(i_element);
-        ETL_DECREMENT_DEBUG_COUNT
+        ETL_DECREMENT_DEBUG_COUNT;;
         return 1;
       }
     }
+
+#if ETL_USING_CPP11
+    //*********************************************************************
+    template <typename K, typename KC = TKeyCompare, etl::enable_if_t<comparator_is_transparent<KC>::value, int> = 0>
+    size_t erase(K&& key)
+    {
+      iterator i_element = find(etl::forward<K>(key));
+
+      if (i_element == end())
+      {
+        return 0;
+      }
+      else
+      {
+        i_element->~value_type();
+        storage.release(etl::addressof(*i_element));
+        refmap_t::erase(i_element);
+        ETL_DECREMENT_DEBUG_COUNT;;
+        return 1;
+      }
+    }
+#endif
 
     //*********************************************************************
     /// Erases an element.
     ///\param i_element Iterator to the element.
     //*********************************************************************
-    void erase(iterator i_element)
+    iterator erase(iterator i_element)
     {
       i_element->~value_type();
       storage.release(etl::addressof(*i_element));
-      refmap_t::erase(i_element);
-      ETL_DECREMENT_DEBUG_COUNT
+      ETL_DECREMENT_DEBUG_COUNT;
+      return refmap_t::erase(i_element);
+    }
+
+    //*********************************************************************
+    /// Erases an element.
+    ///\ param i_element Iterator to the element.
+    //*********************************************************************
+    iterator erase(const_iterator i_element)
+    {
+      i_element->~value_type();
+      storage.release(etl::addressof(*i_element));
+      ETL_DECREMENT_DEBUG_COUNT;
+      return refmap_t::erase(i_element);
     }
 
     //*********************************************************************
@@ -587,19 +664,19 @@ namespace etl
     ///\param first Iterator to the first element.
     ///\param last  Iterator to the last element.
     //*********************************************************************
-    void erase(iterator first, iterator last)
+    iterator erase(const_iterator first, const_iterator last)
     {
-      iterator itr = first;
+      const_iterator itr = first;
 
       while (itr != last)
       {
         itr->~value_type();
         storage.release(etl::addressof(*itr));
         ++itr;
-        ETL_DECREMENT_DEBUG_COUNT
+        ETL_DECREMENT_DEBUG_COUNT;
       }
 
-      refmap_t::erase(first, last);
+      return refmap_t::erase(first, last);
     }
 
     //*************************************************************************
@@ -623,7 +700,7 @@ namespace etl
         }
       }
 
-      ETL_RESET_DEBUG_COUNT
+      ETL_RESET_DEBUG_COUNT;
       refmap_t::clear();
     }
 
@@ -632,90 +709,188 @@ namespace etl
     ///\param key The key to search for.
     ///\return An iterator pointing to the element or end() if not found.
     //*********************************************************************
-    iterator find(key_parameter_t key)
+    iterator find(const_key_reference key)
     {
       return refmap_t::find(key);
     }
+
+#if ETL_USING_CPP11
+    //*********************************************************************
+    template <typename K, typename KC = TKeyCompare, etl::enable_if_t<comparator_is_transparent<KC>::value, int> = 0>
+    iterator find(const K& key)
+    {
+      return refmap_t::find(key);
+    }
+#endif
 
     //*********************************************************************
     /// Finds an element.
     ///\param key The key to search for.
     ///\return An iterator pointing to the element or end() if not found.
     //*********************************************************************
-    const_iterator find(key_parameter_t key) const
+    const_iterator find(const_key_reference key) const
     {
       return refmap_t::find(key);
     }
+
+#if ETL_USING_CPP11
+    //*********************************************************************
+    template <typename K, typename KC = TKeyCompare, etl::enable_if_t<comparator_is_transparent<KC>::value, int> = 0>
+    const_iterator find(const K& key) const
+    {
+      return refmap_t::find(key);
+    }
+#endif
 
     //*********************************************************************
     /// Counts an element.
     ///\param key The key to search for.
     ///\return 1 if the key exists, otherwise 0.
     //*********************************************************************
-    size_t count(key_parameter_t key) const
+    size_t count(const_key_reference key) const
     {
       return refmap_t::count(key);
     }
 
+#if ETL_USING_CPP11
     //*********************************************************************
-    /// Finds the lower bound of a key
-    ///\param key The key to search for.
-    ///\return An iterator.
-    //*********************************************************************
-    iterator lower_bound(key_parameter_t key)
+    template <typename K, typename KC = TKeyCompare, etl::enable_if_t<comparator_is_transparent<KC>::value, int> = 0>
+    size_t count(const K& key) const
     {
-      return refmap_t::lower_bound(key);
+      return refmap_t::count(key);
     }
+#endif
 
     //*********************************************************************
     /// Finds the lower bound of a key
     ///\param key The key to search for.
     ///\return An iterator.
     //*********************************************************************
-    const_iterator lower_bound(key_parameter_t key) const
+    iterator lower_bound(const_key_reference key)
     {
       return refmap_t::lower_bound(key);
     }
 
+#if ETL_USING_CPP11
     //*********************************************************************
-    /// Finds the upper bound of a key
+    template <typename K, typename KC = TKeyCompare, etl::enable_if_t<comparator_is_transparent<KC>::value, int> = 0>
+    iterator lower_bound(const K& key)
+    {
+      return refmap_t::lower_bound(key);
+    }
+#endif
+
+    //*********************************************************************
+    /// Finds the lower bound of a key
     ///\param key The key to search for.
     ///\return An iterator.
     //*********************************************************************
-    iterator upper_bound(key_parameter_t key)
+    const_iterator lower_bound(const_key_reference key) const
     {
-      return refmap_t::upper_bound(key);
+      return refmap_t::lower_bound(key);
     }
+
+#if ETL_USING_CPP11
+    //*********************************************************************
+    template <typename K, typename KC = TKeyCompare, etl::enable_if_t<comparator_is_transparent<KC>::value, int> = 0>
+    const_iterator lower_bound(const K& key) const
+    {
+      return refmap_t::lower_bound(key);
+    }
+#endif
 
     //*********************************************************************
     /// Finds the upper bound of a key
     ///\param key The key to search for.
     ///\return An iterator.
     //*********************************************************************
-    const_iterator upper_bound(key_parameter_t key) const
+    iterator upper_bound(const_key_reference key)
     {
       return refmap_t::upper_bound(key);
     }
+
+#if ETL_USING_CPP11
+    //*********************************************************************
+    template <typename K, typename KC = TKeyCompare, etl::enable_if_t<comparator_is_transparent<KC>::value, int> = 0>
+    iterator upper_bound(const K& key)
+    {
+      return refmap_t::upper_bound(key);
+    }
+#endif
+
+    //*********************************************************************
+    /// Finds the upper bound of a key
+    ///\param key The key to search for.
+    ///\return An iterator.
+    //*********************************************************************
+    const_iterator upper_bound(const_key_reference key) const
+    {
+      return refmap_t::upper_bound(key);
+    }
+
+#if ETL_USING_CPP11
+    //*********************************************************************
+    template <typename K, typename KC = TKeyCompare, etl::enable_if_t<comparator_is_transparent<KC>::value, int> = 0>
+    const_iterator upper_bound(const K& key) const
+    {
+      return refmap_t::upper_bound(key);
+    }
+#endif
 
     //*********************************************************************
     /// Finds the range of equal elements of a key
     ///\param key The key to search for.
     ///\return An iterator pair.
     //*********************************************************************
-    ETL_OR_STD::pair<iterator, iterator> equal_range(key_parameter_t key)
+    ETL_OR_STD::pair<iterator, iterator> equal_range(const_key_reference key)
     {
       return refmap_t::equal_range(key);
     }
+
+#if ETL_USING_CPP11
+    //*********************************************************************
+    template <typename K, typename KC = TKeyCompare, etl::enable_if_t<comparator_is_transparent<KC>::value, int> = 0>
+    ETL_OR_STD::pair<iterator, iterator> equal_range(const K& key)
+    {
+      return refmap_t::equal_range(key);
+    }
+#endif
 
     //*********************************************************************
     /// Finds the range of equal elements of a key
     ///\param key The key to search for.
     ///\return An iterator pair.
     //*********************************************************************
-    ETL_OR_STD::pair<const_iterator, const_iterator> equal_range(key_parameter_t key) const
+    ETL_OR_STD::pair<const_iterator, const_iterator> equal_range(const_key_reference key) const
     {
       return refmap_t::equal_range(key);
     }
+
+#if ETL_USING_CPP11
+    //*********************************************************************
+    template <typename K, typename KC = TKeyCompare, etl::enable_if_t<comparator_is_transparent<KC>::value, int> = 0>
+    ETL_OR_STD::pair<const_iterator, const_iterator> equal_range(const K& key) const
+    {
+      return refmap_t::equal_range(key);
+    }
+#endif
+
+    //*************************************************************************
+    /// Check if the map contains the key.
+    //*************************************************************************
+    bool contains(const_key_reference key) const
+    {
+      return find(key) != end();
+    }
+
+#if ETL_USING_CPP11
+    //*************************************************************************
+    template <typename K, typename KC = TKeyCompare, etl::enable_if_t<comparator_is_transparent<KC>::value, int> = 0>
+    bool contains(const K& k) const
+    {
+      return find(k) != end();
+    }
+#endif
 
     //*************************************************************************
     /// Assignment operator.
@@ -730,7 +905,7 @@ namespace etl
       return *this;
     }
 
-#if ETL_CPP11_SUPPORTED
+#if ETL_USING_CPP11
     //*************************************************************************
     /// Move assignment operator.
     //*************************************************************************
@@ -807,10 +982,10 @@ namespace etl
     {
     }
 
-#if ETL_CPP11_SUPPORTED
+#if ETL_USING_CPP11
     //*************************************************************************
     /// Move a flat_map.
-    /// Assumes the rhs is initialised and empty.
+    /// Assumes the flat_map is initialised and empty.
     //*************************************************************************
     void move_container(iflat_map&& rhs)
     {
@@ -821,10 +996,14 @@ namespace etl
         etl::iflat_map<TKey, TMapped, TKeyCompare>::iterator first = rhs.begin();
         etl::iflat_map<TKey, TMapped, TKeyCompare>::iterator last  = rhs.end();
 
-        // Add all of the elements.
+        // Move all of the elements.
         while (first != last)
         {
-          this->insert(etl::move(*first++));
+          typename etl::iflat_map<TKey, TMapped, TKeyCompare>::iterator temp = first;
+          ++temp;
+
+          this->insert(etl::move(*first));
+          first = temp;
         }
       }
     }
@@ -840,7 +1019,60 @@ namespace etl
     TKeyCompare compare;
 
     /// Internal debugging.
-    ETL_DECLARE_DEBUG_COUNT
+    ETL_DECLARE_DEBUG_COUNT;
+
+#if ETL_USING_CPP11
+    //*************************************************************************
+    template <typename TValueType>
+    ETL_OR_STD::pair<iterator, bool> insert_value(iterator i_element, TValueType&& value)
+    {
+      ETL_ASSERT(!refmap_t::full(), ETL_ERROR(flat_map_full));
+
+      value_type* pvalue = storage.allocate<value_type>();
+      ::new (pvalue) value_type(etl::forward<TValueType>(value));
+      ETL_INCREMENT_DEBUG_COUNT;
+      return refmap_t::insert_at(i_element, *pvalue);
+    }
+#else
+    //*************************************************************************
+    ETL_OR_STD::pair<iterator, bool> insert_value(iterator i_element, const_reference value)
+    {
+      ETL_ASSERT(!refmap_t::full(), ETL_ERROR(flat_map_full));
+
+      value_type* pvalue = storage.allocate<value_type>();
+      ::new (pvalue) value_type(value_type(value));
+      ETL_INCREMENT_DEBUG_COUNT;
+      return refmap_t::insert_at(i_element, *pvalue);
+    }
+#endif
+
+#if ETL_USING_CPP11
+    //*************************************************************************
+    ETL_OR_STD::pair<iterator, bool> insert_default_value(iterator i_element, rvalue_key_reference key)
+    {
+      ETL_ASSERT(!refmap_t::full(), ETL_ERROR(flat_map_full));
+
+      value_type* pvalue = storage.allocate<value_type>();
+      ::new ((void*)etl::addressof(pvalue->first)) key_type(etl::move(key));
+      ::new ((void*)etl::addressof(pvalue->second)) mapped_type();
+      ETL_INCREMENT_DEBUG_COUNT;
+
+      return refmap_t::insert_at(i_element, *pvalue);
+    }
+#endif
+
+    //*************************************************************************
+    ETL_OR_STD::pair<iterator, bool> insert_default_value(iterator i_element, const_key_reference key)
+    {
+      ETL_ASSERT(!refmap_t::full(), ETL_ERROR(flat_map_full));
+
+      value_type* pvalue = storage.allocate<value_type>();
+      ::new ((void*)etl::addressof(pvalue->first)) key_type(key);
+      ::new ((void*)etl::addressof(pvalue->second)) mapped_type();
+      ETL_INCREMENT_DEBUG_COUNT;
+      
+      return refmap_t::insert_at(i_element, *pvalue);
+    }
 
     //*************************************************************************
     /// Destructor.
@@ -916,7 +1148,7 @@ namespace etl
       this->assign(other.cbegin(), other.cend());
     }
 
-#if ETL_CPP11_SUPPORTED
+#if ETL_USING_CPP11
     //*************************************************************************
     /// Move constructor.
     //*************************************************************************
@@ -943,7 +1175,7 @@ namespace etl
       this->assign(first, last);
     }
 
-#if ETL_CPP11_SUPPORTED && ETL_NOT_USING_STLPORT && ETL_USING_STL
+#if ETL_HAS_INITIALIZER_LIST
     //*************************************************************************
     /// Construct from initializer_list.
     //*************************************************************************
@@ -975,7 +1207,7 @@ namespace etl
       return *this;
     }
 
-#if ETL_CPP11_SUPPORTED
+#if ETL_USING_CPP11
     //*************************************************************************
     /// Move assignment operator.
     //*************************************************************************
@@ -1001,16 +1233,29 @@ namespace etl
     etl::vector<node_t*, MAX_SIZE> lookup;
   };
 
+  template <typename TKey, typename TValue, const size_t MAX_SIZE_, typename TCompare>
+  ETL_CONSTANT size_t flat_map<TKey, TValue, MAX_SIZE_, TCompare>::MAX_SIZE;
+
   //*************************************************************************
   /// Template deduction guides.
   //*************************************************************************
-#if ETL_CPP17_SUPPORTED && ETL_NOT_USING_STLPORT && ETL_USING_STL
-  template <typename T, typename... Ts>
-  flat_map(T, Ts...)
-    ->flat_map<etl::enable_if_t<(etl::is_same_v<T, Ts> && ...), typename T::first_type>,
-               etl::enable_if_t<(etl::is_same_v<T, Ts> && ...), typename T::second_type>,
-               1U + sizeof...(Ts)>;
-#endif 
+#if ETL_USING_CPP17 && ETL_HAS_INITIALIZER_LIST
+  template <typename... TPairs>
+  flat_map(TPairs...) -> flat_map<typename etl::nth_type_t<0, TPairs...>::first_type,
+                                  typename etl::nth_type_t<0, TPairs...>::second_type,
+                                  sizeof...(TPairs)>;
+#endif
+
+  //*************************************************************************
+  /// Make
+  //*************************************************************************
+#if ETL_USING_CPP11 && ETL_HAS_INITIALIZER_LIST
+  template <typename TKey, typename TMapped, typename TKeyCompare = etl::less<TKey>, typename... TPairs>
+  constexpr auto make_flat_map(TPairs&&... pairs) -> etl::flat_map<TKey, TMapped, sizeof...(TPairs), TKeyCompare>
+  {
+    return { {etl::forward<TPairs>(pairs)...} };
+  }
+#endif
 }
 
 #endif

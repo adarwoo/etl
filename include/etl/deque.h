@@ -7,7 +7,7 @@ Embedded Template Library.
 https://github.com/ETLCPP/etl
 https://www.etlcpp.com
 
-Copyright(c) 2014 jwellbelove
+Copyright(c) 2014 John Wellbelove
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files(the "Software"), to deal
@@ -31,26 +31,21 @@ SOFTWARE.
 #ifndef ETL_DEQUE_INCLUDED
 #define ETL_DEQUE_INCLUDED
 
-#include <stddef.h>
-#include <stdint.h>
-
 #include "platform.h"
 #include "algorithm.h"
 #include "iterator.h"
 #include "utility.h"
-#include "container.h"
 #include "memory.h"
 #include "exception.h"
 #include "error_handler.h"
 #include "debug_count.h"
 #include "algorithm.h"
 #include "type_traits.h"
-#include "iterator.h"
 #include "placement_new.h"
+#include "initializer_list.h"
 
-#if ETL_CPP11_SUPPORTED && ETL_NOT_USING_STLPORT && ETL_USING_STL
-  #include <initializer_list>
-#endif
+#include <stddef.h>
+#include <stdint.h>
 
 #include "private/minmax_push.h"
 
@@ -202,9 +197,9 @@ namespace etl
     /// Constructor.
     //*************************************************************************
     deque_base(size_t max_size_, size_t buffer_size_)
-      : current_size(0),
-      CAPACITY(max_size_),
-      BUFFER_SIZE(buffer_size_)
+      : current_size(0)
+      , CAPACITY(max_size_)
+      , BUFFER_SIZE(buffer_size_)
     {
     }
 
@@ -218,7 +213,7 @@ namespace etl
     size_type       current_size; ///< The current number of elements in the deque.
     const size_type CAPACITY;     ///< The maximum number of elements in the deque.
     const size_type BUFFER_SIZE;  ///< The number of elements in the buffer.
-    ETL_DECLARE_DEBUG_COUNT       ///< Internal debugging.
+    ETL_DECLARE_DEBUG_COUNT;       ///< Internal debugging.
   };
 
   //***************************************************************************
@@ -233,26 +228,14 @@ namespace etl
 
     typedef T        value_type;
     typedef size_t   size_type;
-    typedef T& reference;
+    typedef T&       reference;
     typedef const T& const_reference;
-#if ETL_CPP11_SUPPORTED
-    typedef T&& rvalue_reference;
+#if ETL_USING_CPP11
+    typedef T&&      rvalue_reference;
 #endif
-    typedef T* pointer;
+    typedef T*       pointer;
     typedef const T* const_pointer;
     typedef typename etl::iterator_traits<pointer>::difference_type difference_type;
-
-  protected:
-
-    //*************************************************************************
-    /// Test for an iterator.
-    //*************************************************************************
-    template <typename TIterator>
-    struct is_iterator : public etl::integral_constant<bool, !etl::is_integral<TIterator>::value && !etl::is_floating_point<TIterator>::value>
-    {
-    };
-
-  public:
 
     //*************************************************************************
     /// Iterator
@@ -274,17 +257,17 @@ namespace etl
 
       //***************************************************
       iterator(const iterator& other)
-        : index(other.index),
-        p_deque(other.p_deque),
-        p_buffer(other.p_buffer)
+        : index(other.index)
+        , p_deque(other.p_deque)
+        , p_buffer(other.p_buffer)
       {
       }
 
       //***************************************************
       iterator& operator =(const iterator& other)
       {
-        index = other.index;
-        p_deque = other.p_deque;
+        index    = other.index;
+        p_deque  = other.p_deque;
         p_buffer = other.p_buffer;
 
         return *this;
@@ -369,7 +352,33 @@ namespace etl
       }
 
       //***************************************************
+      reference operator [](size_t i)
+      {
+        iterator result(*this);
+        result += i;
+
+        return *result;
+      }
+
+      //***************************************************
+      const_reference operator [](size_t i) const
+      {
+        iterator result(*this);
+        result += i;
+
+        return *result;
+      }
+
+      //***************************************************
       friend iterator operator +(const iterator& lhs, difference_type offset)
+      {
+        iterator result(lhs);
+        result += offset;
+        return result;
+      }
+
+      //***************************************************
+      friend iterator operator +(difference_type offset, const iterator& lhs)
       {
         iterator result(lhs);
         result += offset;
@@ -518,8 +527,8 @@ namespace etl
       //***************************************************
       const_iterator& operator =(const const_iterator& other)
       {
-        index = other.index;
-        p_deque = other.p_deque;
+        index    = other.index;
+        p_deque  = other.p_deque;
         p_buffer = other.p_buffer;
 
         return *this;
@@ -527,8 +536,8 @@ namespace etl
 
       const_iterator& operator =(const typename ideque::iterator& other)
       {
-        index = other.index;
-        p_deque = other.p_deque;
+        index    = other.index;
+        p_deque  = other.p_deque;
         p_buffer = other.p_buffer;
 
         return *this;
@@ -613,7 +622,24 @@ namespace etl
       }
 
       //***************************************************
+      reference operator [](size_t i)
+      {
+        iterator result(*this);
+        result += i;
+
+        return *result;
+      }
+
+      //***************************************************
       friend const_iterator operator +(const const_iterator& lhs, difference_type offset)
+      {
+        const_iterator result(lhs);
+        result += offset;
+        return result;
+      }
+
+      //***************************************************
+      friend const_iterator operator +(difference_type offset, const const_iterator& lhs)
       {
         const_iterator result(lhs);
         result += offset;
@@ -720,7 +746,7 @@ namespace etl
       }
 
       difference_type index;
-      ideque* p_deque;
+      ideque*         p_deque;
       pointer         p_buffer;
     };
 
@@ -731,14 +757,15 @@ namespace etl
     /// Assigns a range to the deque.
     //*************************************************************************
     template<typename TIterator>
-    typename etl::enable_if<is_iterator<TIterator>::value, void>::type
+    typename etl::enable_if<!etl::is_integral<TIterator>::value, void>::type
       assign(TIterator range_begin, TIterator range_end)
     {
       initialise();
 
       while (range_begin != range_end)
       {
-        push_back(*range_begin++);
+        push_back(*range_begin);
+        ++range_begin;
       }
     }
 
@@ -956,6 +983,14 @@ namespace etl
     }
 
     //*************************************************************************
+    /// Fills the deque.
+    //*************************************************************************
+    void fill(const T& value)
+    {
+      etl::fill(begin(), end(), value);
+    }
+
+    //*************************************************************************
     /// Inserts data into the deque.
     /// If asserts or exceptions are enabled, throws an etl::deque_full if the deque is full.
     ///\param insert_position>The insert position.
@@ -963,7 +998,7 @@ namespace etl
     //*************************************************************************
     iterator insert(const_iterator insert_position, const value_type& value)
     {
-      iterator position(insert_position.index, *this, p_buffer);
+      iterator position(to_iterator(insert_position));
 
       ETL_ASSERT(!full(), ETL_ERROR(deque_full));
 
@@ -1007,7 +1042,7 @@ namespace etl
       return position;
     }
 
-#if ETL_CPP11_SUPPORTED
+#if ETL_USING_CPP11
     //*************************************************************************
     /// Inserts data into the deque.
     /// If asserts or exceptions are enabled, throws an etl::deque_full if the deque is full.
@@ -1066,7 +1101,7 @@ namespace etl
     /// If asserts or exceptions are enabled, throws an etl::deque_full if the deque is full.
     ///\param insert_position>The insert position.
     //*************************************************************************
-#if ETL_CPP11_SUPPORTED && ETL_NOT_USING_STLPORT
+#if ETL_USING_CPP11 && ETL_NOT_USING_STLPORT
     template <typename ... Args>
     iterator emplace(const_iterator insert_position, Args && ... args)
     {
@@ -1081,7 +1116,7 @@ namespace etl
         --_begin;
         p = etl::addressof(*_begin);
         ++current_size;
-        ETL_INCREMENT_DEBUG_COUNT
+        ETL_INCREMENT_DEBUG_COUNT;
           position = _begin;
       }
       else if (insert_position == end())
@@ -1089,7 +1124,7 @@ namespace etl
         p = etl::addressof(*_end);
         ++_end;
         ++current_size;
-        ETL_INCREMENT_DEBUG_COUNT
+        ETL_INCREMENT_DEBUG_COUNT;
           position = _end - 1;
       }
       else
@@ -1148,7 +1183,7 @@ namespace etl
         --_begin;
         p = etl::addressof(*_begin);
         ++current_size;
-        ETL_INCREMENT_DEBUG_COUNT
+        ETL_INCREMENT_DEBUG_COUNT;
           position = _begin;
       }
       else if (insert_position == end())
@@ -1156,7 +1191,7 @@ namespace etl
         p = etl::addressof(*_end);
         ++_end;
         ++current_size;
-        ETL_INCREMENT_DEBUG_COUNT
+        ETL_INCREMENT_DEBUG_COUNT;
           position = _end - 1;
       }
       else
@@ -1213,7 +1248,7 @@ namespace etl
         --_begin;
         p = etl::addressof(*_begin);
         ++current_size;
-        ETL_INCREMENT_DEBUG_COUNT
+        ETL_INCREMENT_DEBUG_COUNT;
           position = _begin;
       }
       else if (insert_position == end())
@@ -1221,7 +1256,7 @@ namespace etl
         p = etl::addressof(*_end);
         ++_end;
         ++current_size;
-        ETL_INCREMENT_DEBUG_COUNT
+        ETL_INCREMENT_DEBUG_COUNT;
           position = _end - 1;
       }
       else
@@ -1278,7 +1313,7 @@ namespace etl
         --_begin;
         p = etl::addressof(*_begin);
         ++current_size;
-        ETL_INCREMENT_DEBUG_COUNT
+        ETL_INCREMENT_DEBUG_COUNT;
           position = _begin;
       }
       else if (insert_position == end())
@@ -1286,7 +1321,7 @@ namespace etl
         p = etl::addressof(*_end);
         ++_end;
         ++current_size;
-        ETL_INCREMENT_DEBUG_COUNT
+        ETL_INCREMENT_DEBUG_COUNT;
           position = _end - 1;
       }
       else
@@ -1343,7 +1378,7 @@ namespace etl
         --_begin;
         p = etl::addressof(*_begin);
         ++current_size;
-        ETL_INCREMENT_DEBUG_COUNT
+        ETL_INCREMENT_DEBUG_COUNT;
           position = _begin;
       }
       else if (insert_position == end())
@@ -1351,7 +1386,7 @@ namespace etl
         p = etl::addressof(*_end);
         ++_end;
         ++current_size;
-        ETL_INCREMENT_DEBUG_COUNT
+        ETL_INCREMENT_DEBUG_COUNT;
           position = _end - 1;
       }
       else
@@ -1449,7 +1484,8 @@ namespace etl
           // Create copy.
           for (size_t i = 0UL; i < n_create_copy; ++i)
           {
-            create_element_front(*from--);
+            create_element_front(*from);
+            --from;
           }
 
           // Move old.
@@ -1483,7 +1519,8 @@ namespace etl
 
           for (size_t i = 0UL; i < n_create_copy; ++i)
           {
-            create_element_back(*from++);
+            create_element_back(*from);
+            ++from;
           }
 
           // Move old.
@@ -1505,7 +1542,7 @@ namespace etl
     ///\param range_end   The end of the range to insert.
     //*************************************************************************
     template<typename TIterator>
-    typename enable_if<is_iterator<TIterator>::value, iterator>::type
+    typename enable_if<!etl::is_integral<TIterator>::value, iterator>::type
       insert(const_iterator insert_position, TIterator range_begin, TIterator range_end)
     {
       iterator position;
@@ -1524,7 +1561,8 @@ namespace etl
       {
         for (difference_type i = 0; i < n; ++i)
         {
-          create_element_back(*range_begin++);
+          create_element_back(*range_begin);
+          ++range_begin;
         }
 
         position = _end - n;
@@ -1579,7 +1617,8 @@ namespace etl
           TIterator item = range_begin + (n - n_create_new);
           for (size_t i = 0UL; i < n_create_new; ++i)
           {
-            create_element_back(*item++);
+            create_element_back(*item);
+            ++item;
           }
 
           // Create copy.
@@ -1587,7 +1626,8 @@ namespace etl
 
           for (size_t i = 0UL; i < n_create_copy; ++i)
           {
-            create_element_back(*from++);
+            create_element_back(*from);
+            ++from;
           }
 
           // Move old.
@@ -1609,7 +1649,8 @@ namespace etl
     //*************************************************************************
     iterator erase(const_iterator erase_position)
     {
-      iterator position(erase_position.index, *this, p_buffer);
+      iterator position(to_iterator(erase_position));
+      //iterator position(erase_position.index, *this, p_buffer);
 
       ETL_ASSERT(distance(position) <= difference_type(current_size), ETL_ERROR(deque_out_of_bounds));
 
@@ -1650,7 +1691,7 @@ namespace etl
     //*************************************************************************
     iterator erase(const_iterator range_begin, const_iterator range_end)
     {
-      iterator position(range_begin.index, *this, p_buffer);
+      iterator position(to_iterator(range_begin));
 
       ETL_ASSERT((distance(range_begin) <= difference_type(current_size)) && (distance(range_end) <= difference_type(current_size)), ETL_ERROR(deque_out_of_bounds));
 
@@ -1722,7 +1763,7 @@ namespace etl
       create_element_back(item);
     }
 
-#if ETL_CPP11_SUPPORTED
+#if ETL_USING_CPP11
     //*************************************************************************
     /// Adds an item to the back of the deque.
     /// If asserts or exceptions are enabled, throws an etl::deque_full if the deque is already full.
@@ -1737,13 +1778,13 @@ namespace etl
     }
 #endif
 
-#if ETL_CPP11_SUPPORTED && ETL_NOT_USING_STLPORT
+#if ETL_USING_CPP11 && ETL_NOT_USING_STLPORT
     //*************************************************************************
     /// Emplaces an item to the back of the deque.
     /// If asserts or exceptions are enabled, throws an etl::deque_full if the deque is already full.
     //*************************************************************************
     template <typename ... Args>
-    void emplace_back(Args && ... args)
+    reference emplace_back(Args && ... args)
     {
 #if defined(ETL_CHECK_PUSH_POP)
       ETL_ASSERT(!full(), ETL_ERROR(deque_full));
@@ -1752,7 +1793,8 @@ namespace etl
       ::new (&(*_end)) T(etl::forward<Args>(args)...);
       ++_end;
       ++current_size;
-      ETL_INCREMENT_DEBUG_COUNT
+      ETL_INCREMENT_DEBUG_COUNT;
+      return back();
     }
 
 #else
@@ -1761,8 +1803,25 @@ namespace etl
     /// Emplaces an item to the back of the deque.
     /// If asserts or exceptions are enabled, throws an etl::deque_full if the deque is already full.
     //*************************************************************************
+    reference emplace_back()
+    {
+#if defined(ETL_CHECK_PUSH_POP)
+      ETL_ASSERT(!full(), ETL_ERROR(deque_full));
+#endif
+
+      ::new (&(*_end)) T();
+      ++_end;
+      ++current_size;
+      ETL_INCREMENT_DEBUG_COUNT;
+        return back();
+    }
+
+    //*************************************************************************
+    /// Emplaces an item to the back of the deque.
+    /// If asserts or exceptions are enabled, throws an etl::deque_full if the deque is already full.
+    //*************************************************************************
     template <typename T1>
-    void emplace_back(const T1& value1)
+    reference emplace_back(const T1& value1)
     {
 #if defined(ETL_CHECK_PUSH_POP)
       ETL_ASSERT(!full(), ETL_ERROR(deque_full));
@@ -1771,7 +1830,8 @@ namespace etl
       ::new (&(*_end)) T(value1);
       ++_end;
       ++current_size;
-      ETL_INCREMENT_DEBUG_COUNT
+      ETL_INCREMENT_DEBUG_COUNT;
+      return back();
     }
 
     //*************************************************************************
@@ -1779,7 +1839,7 @@ namespace etl
     /// If asserts or exceptions are enabled, throws an etl::deque_full if the deque is already full.
     //*************************************************************************
     template <typename T1, typename T2>
-    void emplace_back(const T1& value1, const T2& value2)
+    reference emplace_back(const T1& value1, const T2& value2)
     {
 #if defined(ETL_CHECK_PUSH_POP)
       ETL_ASSERT(!full(), ETL_ERROR(deque_full));
@@ -1788,7 +1848,8 @@ namespace etl
       ::new (&(*_end)) T(value1, value2);
       ++_end;
       ++current_size;
-      ETL_INCREMENT_DEBUG_COUNT
+      ETL_INCREMENT_DEBUG_COUNT;
+      return back();
     }
 
     //*************************************************************************
@@ -1796,7 +1857,7 @@ namespace etl
     /// If asserts or exceptions are enabled, throws an etl::deque_full if the deque is already full.
     //*************************************************************************
     template <typename T1, typename T2, typename T3>
-    void emplace_back(const T1& value1, const T2& value2, const T3& value3)
+    reference emplace_back(const T1& value1, const T2& value2, const T3& value3)
     {
 #if defined(ETL_CHECK_PUSH_POP)
       ETL_ASSERT(!full(), ETL_ERROR(deque_full));
@@ -1805,7 +1866,8 @@ namespace etl
       ::new (&(*_end)) T(value1, value2, value3);
       ++_end;
       ++current_size;
-      ETL_INCREMENT_DEBUG_COUNT
+      ETL_INCREMENT_DEBUG_COUNT;
+      return back();
     }
 
     //*************************************************************************
@@ -1813,7 +1875,7 @@ namespace etl
     /// If asserts or exceptions are enabled, throws an etl::deque_full if the deque is already full.
     //*************************************************************************
     template <typename T1, typename T2, typename T3, typename T4>
-    void emplace_back(const T1& value1, const T2& value2, const T3& value3, const T4& value4)
+    reference emplace_back(const T1& value1, const T2& value2, const T3& value3, const T4& value4)
     {
 #if defined(ETL_CHECK_PUSH_POP)
       ETL_ASSERT(!full(), ETL_ERROR(deque_full));
@@ -1822,7 +1884,8 @@ namespace etl
       ::new (&(*_end)) T(value1, value2, value3, value4);
       ++_end;
       ++current_size;
-      ETL_INCREMENT_DEBUG_COUNT
+      ETL_INCREMENT_DEBUG_COUNT;
+      return back();
     }
 #endif
 
@@ -1850,7 +1913,7 @@ namespace etl
       create_element_front(item);
     }
 
-#if ETL_CPP11_SUPPORTED
+#if ETL_USING_CPP11
     //*************************************************************************
     /// Adds an item to the front of the deque.
     /// If asserts or exceptions are enabled, throws an etl::deque_full if the deque is already full.
@@ -1865,13 +1928,13 @@ namespace etl
     }
 #endif
 
-#if ETL_CPP11_SUPPORTED && ETL_NOT_USING_STLPORT
+#if ETL_USING_CPP11 && ETL_NOT_USING_STLPORT
     //*************************************************************************
     /// Emplaces an item to the front of the deque.
     /// If asserts or exceptions are enabled, throws an etl::deque_full if the deque is already full.
     //*************************************************************************
     template <typename ... Args>
-    void emplace_front(Args && ... args)
+    reference emplace_front(Args && ... args)
     {
 #if defined(ETL_CHECK_PUSH_POP)
       ETL_ASSERT(!full(), ETL_ERROR(deque_full));
@@ -1880,7 +1943,8 @@ namespace etl
       --_begin;
       ::new (&(*_begin)) T(etl::forward<Args>(args)...);
       ++current_size;
-      ETL_INCREMENT_DEBUG_COUNT
+      ETL_INCREMENT_DEBUG_COUNT;
+      return front();
     }
 
 #else
@@ -1889,8 +1953,25 @@ namespace etl
     /// Emplaces an item to the front of the deque.
     /// If asserts or exceptions are enabled, throws an etl::deque_full if the deque is already full.
     //*************************************************************************
+    reference emplace_front()
+    {
+#if defined(ETL_CHECK_PUSH_POP)
+      ETL_ASSERT(!full(), ETL_ERROR(deque_full));
+#endif
+
+      --_begin;
+      ::new (&(*_begin)) T();
+      ++current_size;
+      ETL_INCREMENT_DEBUG_COUNT;
+        return front();
+    }
+
+    //*************************************************************************
+    /// Emplaces an item to the front of the deque.
+    /// If asserts or exceptions are enabled, throws an etl::deque_full if the deque is already full.
+    //*************************************************************************
     template <typename T1>
-    void emplace_front(const T1& value1)
+    reference emplace_front(const T1& value1)
     {
 #if defined(ETL_CHECK_PUSH_POP)
       ETL_ASSERT(!full(), ETL_ERROR(deque_full));
@@ -1899,7 +1980,8 @@ namespace etl
       --_begin;
       ::new (&(*_begin)) T(value1);
       ++current_size;
-      ETL_INCREMENT_DEBUG_COUNT
+      ETL_INCREMENT_DEBUG_COUNT;
+      return front();
     }
 
     //*************************************************************************
@@ -1907,7 +1989,7 @@ namespace etl
     /// If asserts or exceptions are enabled, throws an etl::deque_full if the deque is already full.
     //*************************************************************************
     template <typename T1, typename T2>
-    void emplace_front(const T1& value1, const T2& value2)
+    reference emplace_front(const T1& value1, const T2& value2)
     {
 #if defined(ETL_CHECK_PUSH_POP)
       ETL_ASSERT(!full(), ETL_ERROR(deque_full));
@@ -1916,7 +1998,8 @@ namespace etl
       --_begin;
       ::new (&(*_begin)) T(value1, value2);
       ++current_size;
-      ETL_INCREMENT_DEBUG_COUNT
+      ETL_INCREMENT_DEBUG_COUNT;
+      return front();
     }
 
     //*************************************************************************
@@ -1924,7 +2007,7 @@ namespace etl
     /// If asserts or exceptions are enabled, throws an etl::deque_full if the deque is already full.
     //*************************************************************************
     template <typename T1, typename T2, typename T3>
-    void emplace_front(const T1& value1, const T2& value2, const T3& value3)
+    reference emplace_front(const T1& value1, const T2& value2, const T3& value3)
     {
 #if defined(ETL_CHECK_PUSH_POP)
       ETL_ASSERT(!full(), ETL_ERROR(deque_full));
@@ -1933,7 +2016,8 @@ namespace etl
       --_begin;
       ::new (&(*_begin)) T(value1, value2, value3);
       ++current_size;
-      ETL_INCREMENT_DEBUG_COUNT
+      ETL_INCREMENT_DEBUG_COUNT;
+      return front();
     }
 
     //*************************************************************************
@@ -1941,7 +2025,7 @@ namespace etl
     /// If asserts or exceptions are enabled, throws an etl::deque_full if the deque is already full.
     //*************************************************************************
     template <typename T1, typename T2, typename T3, typename T4>
-    void emplace_front(const T1& value1, const T2& value2, const T3& value3, const T4& value4)
+    reference emplace_front(const T1& value1, const T2& value2, const T3& value3, const T4& value4)
     {
 #if defined(ETL_CHECK_PUSH_POP)
       ETL_ASSERT(!full(), ETL_ERROR(deque_full));
@@ -1950,7 +2034,8 @@ namespace etl
       --_begin;
       ::new (&(*_begin)) T(value1, value2, value3, value4);
       ++current_size;
-      ETL_INCREMENT_DEBUG_COUNT
+      ETL_INCREMENT_DEBUG_COUNT;
+      return front();
     }
 #endif
 
@@ -1973,7 +2058,7 @@ namespace etl
     //*************************************************************************
     void resize(size_t new_size, const value_type& value = value_type())
     {
-      ETL_ASSERT(new_size <= CAPACITY, ETL_ERROR(deque_out_of_bounds));
+      ETL_ASSERT(new_size <= CAPACITY, ETL_ERROR(deque_full));
 
       // Make it smaller?
       if (new_size < current_size)
@@ -2012,22 +2097,6 @@ namespace etl
     }
 
     //*************************************************************************
-    /// - operator for reverse_iterator
-    //*************************************************************************
-    friend difference_type operator -(const reverse_iterator& lhs, const reverse_iterator& rhs)
-    {
-      return distance(lhs.base(), rhs.base());
-    }
-
-    //*************************************************************************
-    /// - operator for const_reverse_iterator
-    //*************************************************************************
-    friend difference_type operator -(const const_reverse_iterator& lhs, const const_reverse_iterator& rhs)
-    {
-      return distance(lhs.base(), rhs.base());
-    }
-
-    //*************************************************************************
     /// Assignment operator.
     //*************************************************************************
     ideque& operator =(const ideque& rhs)
@@ -2040,7 +2109,7 @@ namespace etl
       return *this;
     }
 
-#if ETL_CPP11_SUPPORTED
+#if ETL_USING_CPP11
     //*************************************************************************
     /// Move assignment operator.
     //*************************************************************************
@@ -2089,7 +2158,7 @@ namespace etl
       if ETL_IF_CONSTEXPR(etl::is_trivially_destructible<T>::value)
       {
         current_size = 0;
-        ETL_RESET_DEBUG_COUNT
+        ETL_RESET_DEBUG_COUNT;
       }
       else
       {
@@ -2128,7 +2197,7 @@ namespace etl
       --_begin;
       ::new (&(*_begin)) T();
       ++current_size;
-      ETL_INCREMENT_DEBUG_COUNT
+      ETL_INCREMENT_DEBUG_COUNT;
     }
 
     //*********************************************************************
@@ -2148,10 +2217,11 @@ namespace etl
 
       do
       {
-        ::new (&(*item++)) T(*from);
+        ::new (&(*item)) T(*from);
+        ++item;
         ++from;
         ++current_size;
-        ETL_INCREMENT_DEBUG_COUNT
+        ETL_INCREMENT_DEBUG_COUNT;
       } while (--n != 0);
     }
 
@@ -2163,7 +2233,7 @@ namespace etl
       ::new (&(*_end)) T();
       ++_end;
       ++current_size;
-      ETL_INCREMENT_DEBUG_COUNT
+      ETL_INCREMENT_DEBUG_COUNT;
     }
 
     //*********************************************************************
@@ -2174,7 +2244,7 @@ namespace etl
       --_begin;
       ::new (&(*_begin)) T(value);
       ++current_size;
-      ETL_INCREMENT_DEBUG_COUNT
+      ETL_INCREMENT_DEBUG_COUNT;
     }
 
     //*********************************************************************
@@ -2185,10 +2255,10 @@ namespace etl
       ::new (&(*_end)) T(value);
       ++_end;
       ++current_size;
-      ETL_INCREMENT_DEBUG_COUNT
+      ETL_INCREMENT_DEBUG_COUNT;
     }
 
-#if ETL_CPP11_SUPPORTED
+#if ETL_USING_CPP11
     //*********************************************************************
     /// Create a new element with a default value at the front.
     //*********************************************************************
@@ -2197,7 +2267,7 @@ namespace etl
       --_begin;
       ::new (&(*_begin)) T(etl::move(value));
       ++current_size;
-      ETL_INCREMENT_DEBUG_COUNT
+      ETL_INCREMENT_DEBUG_COUNT;
     }
 
     //*********************************************************************
@@ -2208,7 +2278,7 @@ namespace etl
       ::new (&(*_end)) T(etl::move(value));
       ++_end;
       ++current_size;
-      ETL_INCREMENT_DEBUG_COUNT
+      ETL_INCREMENT_DEBUG_COUNT;
     }
 #endif
 
@@ -2219,7 +2289,7 @@ namespace etl
     {
       (*_begin).~T();
       --current_size;
-      ETL_DECREMENT_DEBUG_COUNT
+      ETL_DECREMENT_DEBUG_COUNT;
         ++_begin;
     }
 
@@ -2231,7 +2301,7 @@ namespace etl
       --_end;
       (*_end).~T();
       --current_size;
-      ETL_DECREMENT_DEBUG_COUNT
+      ETL_DECREMENT_DEBUG_COUNT;
     }
 
     //*************************************************************************
@@ -2266,13 +2336,21 @@ namespace etl
       }
     }
 
+    //*************************************************************************
+    /// Converts from const_iterator to iterator.
+    //*************************************************************************
+    iterator to_iterator(const_iterator itr) const
+    {
+      return iterator(itr.index, const_cast<ideque&>(*this), p_buffer);
+    }
+
     // Disable copy construction.
     ideque(const ideque&);
 
     //*************************************************************************
     /// Destructor.
     //*************************************************************************
-#if defined(ETL_POLYMORPHIC_DEQUE) || defined(ETL_POLYMORPHIC_CONTAINERS)
+#if defined(ETL_POLYMORPHIC_DEQUE) || defined(ETL_POLYMORPHIC_CONTAINERS) || defined(ETL_IDEQUE_REPAIR_ENABLE)
   public:
     virtual ~ideque()
     {
@@ -2342,7 +2420,7 @@ namespace etl
       }
     }
 
-#if ETL_CPP11_SUPPORTED
+#if ETL_USING_CPP11
     //*************************************************************************
     /// Move constructor.
     //*************************************************************************
@@ -2382,7 +2460,7 @@ namespace etl
       this->assign(n, value);
     }
 
-#if ETL_CPP11_SUPPORTED && ETL_NOT_USING_STLPORT && ETL_USING_STL
+#if ETL_HAS_INITIALIZER_LIST
     //*************************************************************************
     /// Construct from initializer_list.
     //*************************************************************************
@@ -2406,7 +2484,7 @@ namespace etl
       return *this;
     }
 
-#if ETL_CPP11_SUPPORTED
+#if ETL_USING_CPP11
     //*************************************************************************
     /// Move assignment operator.
     //*************************************************************************
@@ -2430,12 +2508,10 @@ namespace etl
     //*************************************************************************
     /// Fix the internal pointers after a low level memory copy.
     //*************************************************************************
-#ifdef ETL_ISTRING_REPAIR_ENABLE
-      virtual
-#endif
-      void repair()
-#ifdef ETL_ISTRING_REPAIR_ENABLE
-      ETL_OVERRIDE
+#ifdef ETL_IDEQUE_REPAIR_ENABLE
+        virtual void repair() ETL_OVERRIDE
+#else
+        void repair()
 #endif
     {
 #if ETL_CPP11_TYPE_TRAITS_IS_TRIVIAL_SUPPORTED
@@ -2451,13 +2527,26 @@ namespace etl
     etl::uninitialized_buffer_of<T, BUFFER_SIZE> buffer;
   };
 
+  template <typename T, const size_t MAX_SIZE_>
+  ETL_CONSTANT size_t deque<T, MAX_SIZE_>::MAX_SIZE;
+
   //*************************************************************************
   /// Template deduction guides.
   //*************************************************************************
-#if ETL_CPP17_SUPPORTED && ETL_NOT_USING_STLPORT && ETL_USING_STL
-  template <typename T, typename... Ts>
-  deque(T, Ts...)
-    ->deque<etl::enable_if_t<(etl::is_same_v<T, Ts> && ...), T>, 1U + sizeof...(Ts)>;
+#if ETL_USING_CPP17 && ETL_HAS_INITIALIZER_LIST
+  template <typename... T>
+  deque(T...) -> deque<typename etl::common_type_t<T...>, sizeof...(T)>;
+#endif
+
+  //*************************************************************************
+  /// Make
+  //*************************************************************************
+#if ETL_USING_CPP11 && ETL_HAS_INITIALIZER_LIST
+  template <typename T, typename... TValues>
+  constexpr auto make_deque(TValues&&... values) -> etl::deque<T, sizeof...(TValues)>
+  {
+    return { { etl::forward<T>(values)... } };
+  }
 #endif
 
   //***************************************************************************

@@ -7,7 +7,7 @@ Embedded Template Library.
 https://github.com/ETLCPP/etl
 https://www.etlcpp.com
 
-Copyright(c) 2017 jwellbelove
+Copyright(c) 2017 John Wellbelove
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files(the "Software"), to deal
@@ -31,11 +31,11 @@ SOFTWARE.
 #ifndef ETL_SQRT_INCLUDED
 #define ETL_SQRT_INCLUDED
 
-#include <stddef.h>
-
 #include "platform.h"
 #include "type_traits.h"
 #include "constant.h"
+
+#include <stddef.h>
 
 namespace etl 
 {
@@ -49,7 +49,7 @@ namespace etl
                                       etl::constant<intmax_t, I - 1>,
                                       etl::sqrt<VALUE, I + 1> >::type type;
 
-#if ETL_CPP11_SUPPORTED
+#if ETL_USING_CPP11
     static constexpr size_t value = type::value;
 #else
     enum
@@ -60,7 +60,12 @@ namespace etl
 #endif
   };
 
-#if ETL_CPP17_SUPPORTED
+#if ETL_USING_CPP11
+  template <size_t VALUE, size_t I>
+  constexpr size_t sqrt<VALUE, I>::value;
+#endif
+
+#if ETL_USING_CPP17
   template <size_t VALUE, size_t I = 1>
   inline constexpr size_t sqrt_v = sqrt<VALUE, I>::value;
 #endif

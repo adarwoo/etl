@@ -5,7 +5,7 @@ Embedded Template Library.
 https://github.com/ETLCPP/etl
 https://www.etlcpp.com
 
-Copyright(c) 2017 jwellbelove
+Copyright(c) 2017 John Wellbelove
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files(the "Software"), to deal
@@ -29,8 +29,6 @@ SOFTWARE.
 #ifndef ETL_CALLBACK_TIMER_INCLUDED
 #define ETL_CALLBACK_TIMER_INCLUDED
 
-#include <stdint.h>
-
 #include "platform.h"
 #include "algorithm.h"
 #include "nullptr.h"
@@ -40,10 +38,9 @@ SOFTWARE.
 #include "atomic.h"
 #include "error_handler.h"
 #include "placement_new.h"
+#include "delegate.h"
 
-#if ETL_CPP11_SUPPORTED
-  #include "delegate.h"
-#endif
+#include <stdint.h>
 
 #if defined(ETL_IN_UNIT_TEST) && ETL_NOT_USING_STL
   #define ETL_DISABLE_TIMER_UPDATES
@@ -84,7 +81,9 @@ namespace etl
   /// The configuration of a timer.
   struct callback_timer_data
   {
-    enum callback_type
+    typedef etl::delegate<void(void)> callback_type;
+
+    enum callback_type_id
     {
       C_CALLBACK,
       IFUNCTION,
@@ -95,7 +94,7 @@ namespace etl
     callback_timer_data()
       : p_callback(ETL_NULLPTR),
         period(0),
-        delta(etl::timer::state::INACTIVE),
+        delta(etl::timer::state::Inactive),
         id(etl::timer::id::NO_TIMER),
         previous(etl::timer::id::NO_TIMER),
         next(etl::timer::id::NO_TIMER),
@@ -113,7 +112,7 @@ namespace etl
                         bool                 repeating_)
       : p_callback(reinterpret_cast<void*>(p_callback_)),
         period(period_),
-        delta(etl::timer::state::INACTIVE),
+        delta(etl::timer::state::Inactive),
         id(id_),
         previous(etl::timer::id::NO_TIMER),
         next(etl::timer::id::NO_TIMER),
@@ -131,7 +130,7 @@ namespace etl
                         bool                  repeating_)
       : p_callback(reinterpret_cast<void*>(&callback_)),
         period(period_),
-        delta(etl::timer::state::INACTIVE),
+        delta(etl::timer::state::Inactive),
         id(id_),
         previous(etl::timer::id::NO_TIMER),
         next(etl::timer::id::NO_TIMER),
@@ -140,17 +139,16 @@ namespace etl
     {
     }
 
-#if ETL_CPP11_SUPPORTED
     //*******************************************
     /// ETL delegate callback
     //*******************************************
-    callback_timer_data(etl::timer::id::type   id_,
-                        etl::delegate<void()>& callback_,
-                        uint32_t               period_,
-                        bool                   repeating_)
+    callback_timer_data(etl::timer::id::type id_,
+                        callback_type&       callback_,
+                        uint32_t             period_,
+                        bool                 repeating_)
             : p_callback(reinterpret_cast<void*>(&callback_)),
               period(period_),
-              delta(etl::timer::state::INACTIVE),
+              delta(etl::timer::state::Inactive),
               id(id_),
               previous(etl::timer::id::NO_TIMER),
               next(etl::timer::id::NO_TIMER),
@@ -158,14 +156,13 @@ namespace etl
               cbk_type(DELEGATE)
     {
     }
-#endif
 
     //*******************************************
     /// Returns true if the timer is active.
     //*******************************************
     bool is_active() const
     {
-      return delta != etl::timer::state::INACTIVE;
+      return delta != etl::timer::state::Inactive;
     }
 
     //*******************************************
@@ -173,7 +170,7 @@ namespace etl
     //*******************************************
     void set_inactive()
     {
-      delta = etl::timer::state::INACTIVE;
+      delta = etl::timer::state::Inactive;
     }
 
     void*                 p_callback;
@@ -183,7 +180,7 @@ namespace etl
     uint_least8_t         previous;
     uint_least8_t         next;
     bool                  repeating;
-    callback_type         cbk_type;
+    callback_type_id      cbk_type;
 
   private:
 
@@ -316,11 +313,17 @@ namespace etl
 
         timer.previous = etl::timer::id::NO_TIMER;
         timer.next     = etl::timer::id::NO_TIMER;
-        timer.delta    = etl::timer::state::INACTIVE;
+        timer.delta    = etl::timer::state::Inactive;
       }
 
       //*******************************
       etl::callback_timer_data& front()
+      {
+        return ptimers[head];
+      }
+
+      //*******************************
+      const etl::callback_timer_data& front() const
       {
         return ptimers[head];
       }
@@ -379,6 +382,8 @@ namespace etl
   class icallback_timer
   {
   public:
+
+    typedef etl::delegate<void(void)> callback_type;
 
     //*******************************************
     /// Register a timer.
@@ -447,10 +452,10 @@ namespace etl
       //*******************************************
       /// Register a timer.
       //*******************************************
-#if ETL_CPP11_SUPPORTED
-      etl::timer::id::type register_timer(etl::delegate<void()>& callback_,
-                                          uint32_t               period_,
-                                          bool                   repeating_)
+#if ETL_USING_CPP11
+      etl::timer::id::type register_timer(callback_type& callback_,
+                                          uint32_t       period_,
+                                          bool           repeating_)
       {
           etl::timer::id::type id = etl::timer::id::NO_TIMER;
 
@@ -586,13 +591,11 @@ namespace etl
                   // Call the function wrapper callback.
                   (*reinterpret_cast<etl::ifunction<void>*>(timer.p_callback))();
                 }
-#if ETL_CPP11_SUPPORTED
                 else if(timer.cbk_type == callback_timer_data::DELEGATE)
                 {
                     // Call the delegate callback.
-                    (*reinterpret_cast<etl::delegate<void()>*>(timer.p_callback))();
+                    (*reinterpret_cast<callback_type*>(timer.p_callback))();
                 }
-#endif
               }
 
               has_active = !active_list.empty();
@@ -628,7 +631,7 @@ namespace etl
         if (timer.id != etl::timer::id::NO_TIMER)
         {
           // Has a valid period.
-          if (timer.period != etl::timer::state::INACTIVE)
+          if (timer.period != etl::timer::state::Inactive)
           {
             ETL_DISABLE_TIMER_UPDATES;
             if (timer.is_active())
@@ -705,6 +708,30 @@ namespace etl
       return false;
     }
 
+    //*******************************************
+    /// Check if there is an active timer.
+    //*******************************************
+    bool has_active_timer() const
+    {
+      return !active_list.empty();
+    }
+
+    //*******************************************
+    /// Get the time to the next timer event.
+    /// Returns etl::timer::interval::No_Active_Interval if there is no active timer.
+    //*******************************************
+    uint32_t time_to_next() const
+    {
+      uint32_t delta = static_cast<uint32_t>(etl::timer::interval::No_Active_Interval);
+
+      if (has_active_timer())
+      {
+        delta = active_list.front().delta;
+      }
+
+      return delta;
+    }
+
   protected:
 
     //*******************************************
@@ -732,9 +759,20 @@ namespace etl
 
     volatile bool enabled;
 #if defined(ETL_CALLBACK_TIMER_USE_ATOMIC_LOCK)
-    volatile etl::timer_semaphore_t process_semaphore;
+
+#if defined(ETL_TIMER_SEMAPHORE_TYPE)
+    typedef ETL_TIMER_SEMAPHORE_TYPE timer_semaphore_t;
+#else
+  #if ETL_HAS_ATOMIC
+    typedef etl::atomic_uint16_t timer_semaphore_t;
+  #else
+    #error No atomic type available
+  #endif
 #endif
-    volatile uint_least8_t registered_timers;
+
+    mutable etl::timer_semaphore_t process_semaphore;
+#endif
+    uint_least8_t registered_timers;
 
   public:
 

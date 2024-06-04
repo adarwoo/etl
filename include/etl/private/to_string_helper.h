@@ -7,7 +7,7 @@ Embedded Template Library.
 https://github.com/ETLCPP/etl
 https://www.etlcpp.com
 
-Copyright(c) 2019 jwellbelove
+Copyright(c) 2019 John Wellbelove
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files(the "Software"), to deal
@@ -33,8 +33,6 @@ SOFTWARE.
 
 ///\ingroup private
 
-#include <math.h>
-
 #include "../platform.h"
 #include "../absolute.h"
 #include "../negative.h"
@@ -44,7 +42,14 @@ SOFTWARE.
 #include "../absolute.h"
 #include "../algorithm.h"
 #include "../iterator.h"
+#include "../math.h"
 #include "../limits.h"
+
+#include <math.h>
+
+#if ETL_USING_STL && ETL_USING_CPP11
+  #include <iterator> // For std::begin, std::end and std::size
+#endif
 
 namespace etl
 {
@@ -52,8 +57,10 @@ namespace etl
   {
 #if ETL_NOT_USING_64BIT_TYPES
     typedef int32_t workspace_t;
+    typedef uint32_t uworkspace_t;
 #else
     typedef int64_t workspace_t;
+    typedef uint64_t uworkspace_t;
 #endif
 
     //***************************************************************************
@@ -107,11 +114,11 @@ namespace etl
       {
         if (value)
         {
-          str.insert(str.end(), etl::begin(t), etl::end(t));
+          str.insert(str.end(), ETL_OR_STD11::begin(t), ETL_OR_STD11::end(t));
         }
         else
         {
-          str.insert(str.end(), etl::begin(f), etl::end(f));
+          str.insert(str.end(), ETL_OR_STD11::begin(f), ETL_OR_STD11::end(f));
         }
       }
       else
@@ -151,7 +158,7 @@ namespace etl
 
       if (value == 0)
       {
-        // If number is negative, append '-' (a negative zero might occure for fractional numbers > -1.0)
+        // If number is negative, append '-' (a negative zero might occur for fractional numbers > -1.0)
         if ((format.get_base() == 10U) && negative)
         {
           str.push_back(type('-'));
@@ -228,11 +235,11 @@ namespace etl
 
       if (not_a_number)
       {
-        str.insert(str.end(), etl::begin(n), etl::end(n));
+        str.insert(str.end(), ETL_OR_STD11::begin(n), ETL_OR_STD11::end(n));
       }
       else if (infinity)
       {
-        str.insert(str.end(), etl::begin(i), etl::end(i));
+        str.insert(str.end(), ETL_OR_STD11::begin(i), ETL_OR_STD11::end(i));
       }
     }
 
@@ -264,11 +271,11 @@ namespace etl
     //***************************************************************************
     template <typename TIString>
     void add_integral_and_fractional(const uint64_t integral,
-                                 const uint64_t fractional,
-                                 TIString& str,
-                                 const etl::basic_format_spec<TIString>& integral_format,
-                                 const etl::basic_format_spec<TIString>& fractional_format,
-                                 const bool negative)
+                                     const uint64_t fractional,
+                                     TIString& str,
+                                     const etl::basic_format_spec<TIString>& integral_format,
+                                     const etl::basic_format_spec<TIString>& fractional_format,
+                                     const bool negative)
     {
       typedef typename TIString::value_type type;
 
@@ -310,13 +317,20 @@ namespace etl
         // Make sure we format the two halves correctly.
         uint32_t max_precision = etl::numeric_limits<T>::digits10;
 
+#if ETL_NOT_USING_64BIT_TYPES
+        if (max_precision > 9)
+        {
+          max_precision = 9;
+        }
+#endif
+
         etl::basic_format_spec<TIString> integral_format = format;
         integral_format.decimal().width(0).precision(format.get_precision() > max_precision ? max_precision : format.get_precision());
 
         etl::basic_format_spec<TIString> fractional_format = integral_format;
         fractional_format.width(integral_format.get_precision()).fill(type('0')).right();
 
-        uint32_t multiplier = 1U;
+        uworkspace_t multiplier = 1U;
 
         for (uint32_t i = 0U; i < fractional_format.get_precision(); ++i)
         {
@@ -325,10 +339,10 @@ namespace etl
 
         // Find the integral part of the floating point
         T f_integral = floor(etl::absolute(value));
-        uint32_t integral = static_cast<uint32_t>(f_integral);
+        uworkspace_t integral = static_cast<uworkspace_t>(f_integral);
 
         // Find the fractional part of the floating point.
-        uint32_t fractional = static_cast<uint32_t>(round((etl::absolute(value) - f_integral) * multiplier));
+        uworkspace_t fractional = static_cast<uworkspace_t>(round((etl::absolute(value) - f_integral) * multiplier));
 
         // Check for a rounding carry to the integral.
         if (fractional == multiplier)
@@ -364,7 +378,7 @@ namespace etl
 
       iterator start = str.end();
 
-      // Caculate the denominator.
+      // Calculate the denominator.
       working_t denominator = 1U;
 
       for (uint32_t i = 0U; i < denominator_exponent; ++i)
@@ -372,7 +386,8 @@ namespace etl
         denominator *= 10U;
       }
 
-      working_t abs_value = etl::absolute(value);
+      // Get the absolute value, taking care of minimum negative values.
+      working_t abs_value = etl::absolute_unsigned(value);
 
       // Figure out how many decimal digits we have in the value.
       const uint32_t& original_decimal_digits = denominator_exponent;
@@ -545,11 +560,11 @@ namespace etl
     typename etl::enable_if<etl::is_integral<T>::value &&
                             !etl::is_same<T, bool>::value &&
                             !etl::is_one_of<T, int64_t, uint64_t>::value, const TIString&>::type
-      to_string(const T value, uint32_t denominator_exponant, TIString& str, const etl::basic_format_spec<TIString>& format, const bool append = false)
+      to_string(const T value, uint32_t denominator_exponent, TIString& str, const etl::basic_format_spec<TIString>& format, const bool append = false)
     {
       typedef typename etl::conditional<etl::is_signed<T>::value, int32_t, uint32_t>::type type;
 
-      etl::private_to_string::add_integral_denominated(type(value), denominator_exponant, str, format, append);
+      etl::private_to_string::add_integral_denominated(type(value), denominator_exponent, str, format, append);
 
       return str;
     }
@@ -561,9 +576,9 @@ namespace etl
     typename etl::enable_if<etl::is_integral<T>::value&&
                             !etl::is_same<T, bool>::value&&
                             etl::is_one_of<T, int64_t, uint64_t>::value, const TIString&>::type
-      to_string(const T value, uint32_t denominator_exponant, TIString& str, const etl::basic_format_spec<TIString>& format, const bool append = false)
+      to_string(const T value, uint32_t denominator_exponent, TIString& str, const etl::basic_format_spec<TIString>& format, const bool append = false)
     {
-      etl::private_to_string::add_integral_denominated(value, denominator_exponant, str, format, append);
+      etl::private_to_string::add_integral_denominated(value, denominator_exponent, str, format, append);
 
       return str;
     }
@@ -589,9 +604,9 @@ namespace etl
     template <typename T, typename TIString>
     typename etl::enable_if<etl::is_integral<T>::value &&
       !etl::is_same<T, bool>::value>::value, const TIString& > ::type
-      to_string(const T value, uint32_t denominator_exponant, TIString& str, const etl::basic_format_spec<TIString>& format, const bool append = false)
+      to_string(const T value, uint32_t denominator_exponent, TIString& str, const etl::basic_format_spec<TIString>& format, const bool append = false)
     {
-      etl::private_to_string::add_integral_denominated(type(value), denominator_exponant, str, format, append, false);
+      etl::private_to_string::add_integral_denominated(type(value), denominator_exponent, str, format, append, false);
 
       return str;
     }

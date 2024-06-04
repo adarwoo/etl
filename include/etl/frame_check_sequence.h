@@ -1,12 +1,10 @@
-
 ///\file
-
 /******************************************************************************
 The MIT License(MIT)
 Embedded Template Library.
 https://github.com/ETLCPP/etl
 https://www.etlcpp.com
-Copyright(c) 2014 jwellbelove
+Copyright(c) 2014 John Wellbelove
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files(the "Software"), to deal
 in the Software without restriction, including without limitation the rights
@@ -27,16 +25,15 @@ SOFTWARE.
 #ifndef ETL_FRAME_CHECK_SEQUENCE_INCLUDED
 #define ETL_FRAME_CHECK_SEQUENCE_INCLUDED
 
-#include <stdint.h>
-
 #include "platform.h"
 #include "static_assert.h"
 #include "type_traits.h"
 #include "binary.h"
-
 #include "iterator.h"
 
-ETL_STATIC_ASSERT(ETL_8BIT_SUPPORT, "This file does not currently support targets with no 8bit type");
+#include <stdint.h>
+
+ETL_STATIC_ASSERT(ETL_USING_8BIT_TYPES, "This file does not currently support targets with no 8bit type");
 
 ///\defgroup frame_check_sequence Frame check sequence calculation
 ///\ingroup maths
@@ -49,13 +46,13 @@ namespace etl
     /// add_insert_iterator
     /// An output iterator used to add new values.
     //***************************************************
-    template <typename TFCS>
-    class add_insert_iterator : public etl::iterator<ETL_OR_STD::output_iterator_tag, void, void, void, void>
+    template <typename TFrame_Check_Sequence>
+    class add_insert_iterator : public etl::iterator<ETL_OR_STD::output_iterator_tag, typename TFrame_Check_Sequence::value_type>
     {
     public:
 
       //***********************************
-      explicit add_insert_iterator(TFCS& fcs) ETL_NOEXCEPT
+      explicit add_insert_iterator(TFrame_Check_Sequence& fcs) ETL_NOEXCEPT
         : p_fcs(&fcs)
       {
       }
@@ -87,7 +84,7 @@ namespace etl
 
     private:
 
-      TFCS* p_fcs;
+      TFrame_Check_Sequence* p_fcs;
     };
   }
 
@@ -149,7 +146,8 @@ namespace etl
 
       while (begin != end)
       {
-        frame_check = policy.add(frame_check, *begin++);
+        frame_check = policy.add(frame_check, *begin);
+        ++begin;
       }
     }
 

@@ -7,7 +7,7 @@ Embedded Template Library.
 https://github.com/ETLCPP/etl
 https://www.etlcpp.com
 
-Copyright(c) 2019 jwellbelove
+Copyright(c) 2019 John Wellbelove
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files(the "Software"), to deal
@@ -172,10 +172,10 @@ namespace etl
   static ETL_CONSTANT private_basic_format_spec::base_spec hex(16U);
 
   //*********************************
-  static ETL_CONSTANT private_basic_format_spec::left_spec left;
+  static ETL_CONSTANT private_basic_format_spec::left_spec left = private_basic_format_spec::left_spec();
 
   //*********************************
-  static ETL_CONSTANT private_basic_format_spec::right_spec right;
+  static ETL_CONSTANT private_basic_format_spec::right_spec right = private_basic_format_spec::right_spec();
 
   //*********************************
   static ETL_CONSTANT private_basic_format_spec::boolalpha_spec boolalpha(true);
@@ -219,7 +219,7 @@ namespace etl
     }
 
     //***************************************************************************
-    /// Cconstructor.
+    /// Constructor.
     //***************************************************************************
     ETL_CONSTEXPR basic_format_spec(uint_least8_t base__,
                                     uint_least8_t width__,

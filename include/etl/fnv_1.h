@@ -7,7 +7,7 @@ Embedded Template Library.
 https://github.com/ETLCPP/etl
 https://www.etlcpp.com
 
-Copyright(c) 2014 jwellbelove
+Copyright(c) 2014 John Wellbelove
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files(the "Software"), to deal
@@ -31,14 +31,13 @@ SOFTWARE.
 #ifndef ETL_FNV_1_INCLUDED
 #define ETL_FNV_1_INCLUDED
 
-#include <stdint.h>
-
 #include "platform.h"
 #include "static_assert.h"
 #include "type_traits.h"
 #include "ihash.h"
 #include "frame_check_sequence.h"
 
+#include <stdint.h>
 
 #if defined(ETL_COMPILER_KEIL)
 #pragma diag_suppress 1300
@@ -58,19 +57,19 @@ namespace etl
   {
     typedef uint64_t value_type;
 
-    inline uint64_t initial() const
+    uint64_t initial() const
     {
       return OFFSET_BASIS;
     }
 
-    inline uint64_t add(uint64_t hash, uint8_t value) const
+    uint64_t add(uint64_t hash, uint8_t value) const
     {
       hash *= PRIME;
       hash ^= value;
       return  hash;
     }
 
-    inline uint64_t final(uint64_t hash) const
+    uint64_t final(uint64_t hash) const
     {
       return hash;
     }
@@ -116,19 +115,19 @@ namespace etl
     {
     typedef uint64_t value_type;
 
-    inline uint64_t initial() const
+    uint64_t initial() const
       {
       return OFFSET_BASIS;
     }
 
-    inline uint64_t add(uint64_t hash, uint8_t value) const
+    uint64_t add(uint64_t hash, uint8_t value) const
     {
       hash ^= value;
       hash *= PRIME;
       return hash;
     }
 
-    inline uint64_t final(uint64_t hash) const
+    uint64_t final(uint64_t hash) const
     {
       return hash;
     }
@@ -175,19 +174,19 @@ namespace etl
     {
     typedef uint32_t value_type;
 
-    inline uint32_t initial() const
+    uint32_t initial() const
       {
       return OFFSET_BASIS;
     }
 
-    inline uint32_t add(uint32_t hash, uint8_t value) const
+    uint32_t add(uint32_t hash, uint8_t value) const
     {
       hash *= PRIME;
       hash ^= value;
       return hash;
     }
 
-    inline uint32_t final(uint32_t hash) const
+    uint32_t final(uint32_t hash) const
     {
       return hash;
     }
@@ -233,19 +232,19 @@ namespace etl
     {
     typedef uint32_t value_type;
 
-    inline uint32_t initial() const
+    uint32_t initial() const
       {
       return OFFSET_BASIS;
     }
 
-    inline uint32_t add(uint32_t hash, uint8_t value) const
+    uint32_t add(uint32_t hash, uint8_t value) const
     {
       hash ^= value;
       hash *= PRIME;
       return hash;
     }
 
-    inline uint32_t final(uint32_t hash) const
+    uint32_t final(uint32_t hash) const
     {
       return hash;
     }

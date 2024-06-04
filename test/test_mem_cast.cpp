@@ -5,7 +5,7 @@ Embedded Template Library.
 https://github.com/ETLCPP/etl
 https://www.etlcpp.com
 
-Copyright(c) 2021 jwellbelove
+Copyright(c) 2021 John Wellbelove
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files(the "Software"), to deal
@@ -38,7 +38,6 @@ SOFTWARE.
 
 namespace
 {
-  #pragma pack(push,1)
   struct Data
   {
     Data()
@@ -59,7 +58,6 @@ namespace
     double d;
     std::array<int, 3> a;
   };
-  #pragma pack(pop)
 
   constexpr size_t Size      = etl::largest<char, double, Data>::size;
   constexpr size_t Alignment = etl::largest<char, double, Data>::alignment;
@@ -147,9 +145,11 @@ namespace
 
       Data data(123, 1.23, std::array<int, 3>{ 1, 2, 3 });
       memCast.assign<Data>(data);
-      CHECK(123 == memCast.ref<Data>().c);
-      CHECK(1.23 == memCast.ref<Data>().d);
-      CHECK((std::array { 1, 2, 3 }) == memCast.ref<Data>().a);
+      CHECK_EQUAL(123,  memCast.ref<Data>().c);
+      CHECK_EQUAL(1.23, memCast.ref<Data>().d);
+      CHECK_EQUAL(1,    memCast.ref<Data>().a[0]);
+      CHECK_EQUAL(2,    memCast.ref<Data>().a[1]);
+      CHECK_EQUAL(3,    memCast.ref<Data>().a[2]);
     }
 
     //*************************************************************************
@@ -163,7 +163,9 @@ namespace
       size_t offset = offsetof(Data, a);
 
       memCast.assign_at_offset<Array>(offset, a);
-      CHECK(a == memCast.ref<Data>().a);
+      CHECK_EQUAL(a[0], memCast.ref<Data>().a[0]);
+      CHECK_EQUAL(a[1], memCast.ref<Data>().a[1]);
+      CHECK_EQUAL(a[2], memCast.ref<Data>().a[2]);
     }
 
     //*************************************************************************
@@ -177,7 +179,9 @@ namespace
       constexpr size_t Offset = offsetof(Data, a);
 
       memCast.assign_at_offset<Array, Offset>(a);
-      CHECK(a == memCast.ref<Data>().a);
+      CHECK_EQUAL(a[0], memCast.ref<Data>().a[0]);
+      CHECK_EQUAL(a[1], memCast.ref<Data>().a[1]);
+      CHECK_EQUAL(a[2], memCast.ref<Data>().a[2]);
     }
 
     //*************************************************************************
@@ -192,9 +196,11 @@ namespace
       CHECK_EQUAL(1.23, memCast.ref<double>());
 
       memCast.emplace<Data>(123, 1.23, std::array<int, 3>{ 1, 2, 3 });
-      CHECK(123 == memCast.ref<Data>().c);
-      CHECK(1.23 == memCast.ref<Data>().d);
-      CHECK((std::array { 1, 2, 3 }) == memCast.ref<Data>().a);
+      CHECK_EQUAL(123,  memCast.ref<Data>().c);
+      CHECK_EQUAL(1.23, memCast.ref<Data>().d);
+      CHECK_EQUAL(1,    memCast.ref<Data>().a[0]);
+      CHECK_EQUAL(2,    memCast.ref<Data>().a[1]);
+      CHECK_EQUAL(3,    memCast.ref<Data>().a[2]);
     }
 
     //*************************************************************************
@@ -208,7 +214,9 @@ namespace
       size_t offset = offsetof(Data, a);
 
       memCast.emplace_at_offset<Array>(offset, a);
-      CHECK(a == memCast.ref<Data>().a);
+      CHECK_EQUAL(a[0], memCast.ref<Data>().a[0]);
+      CHECK_EQUAL(a[1], memCast.ref<Data>().a[1]);
+      CHECK_EQUAL(a[2], memCast.ref<Data>().a[2]);
     }
 
     //*************************************************************************
@@ -222,7 +230,9 @@ namespace
       constexpr size_t Offset = offsetof(Data, a);
 
       memCast.emplace_at_offset<Array, Offset>(a);
-      CHECK(a == memCast.ref<Data>().a);
+      CHECK_EQUAL(a[0], memCast.ref<Data>().a[0]);
+      CHECK_EQUAL(a[1], memCast.ref<Data>().a[1]);
+      CHECK_EQUAL(a[2], memCast.ref<Data>().a[2]);
     }
 
     //*************************************************************************
@@ -238,9 +248,11 @@ namespace
       CHECK_EQUAL(1.23, memCast.ref<double>());
 
       *reinterpret_cast<Data*>(pbuffer) = { 123, 1.23, { 1, 2, 3 } };
-      CHECK(123 == memCast.ref<Data>().c);
-      CHECK(1.23 == memCast.ref<Data>().d);
-      CHECK((std::array { 1, 2, 3 }) == memCast.ref<Data>().a);
+      CHECK_EQUAL(123, memCast.ref<Data>().c);
+      CHECK_EQUAL(1.23, memCast.ref<Data>().d);
+      CHECK_EQUAL(1, memCast.ref<Data>().a[0]);
+      CHECK_EQUAL(2, memCast.ref<Data>().a[1]);
+      CHECK_EQUAL(3, memCast.ref<Data>().a[2]);
     }
 
     //*************************************************************************
@@ -257,15 +269,17 @@ namespace
       CHECK_EQUAL(1.23, memCastRef.ref<double>());
 
       *reinterpret_cast<Data*>(pbuffer) = { 123, 1.23, { 1, 2, 3 } };
-      CHECK(123 == memCastRef.ref<Data>().c);
-      CHECK(1.23 == memCastRef.ref<Data>().d);
-      CHECK((std::array { 1, 2, 3 }) == memCastRef.ref<Data>().a);
+      CHECK_EQUAL(123, memCastRef.ref<Data>().c);
+      CHECK_EQUAL(1.23, memCastRef.ref<Data>().d);
+      CHECK_EQUAL(1, memCast.ref<Data>().a[0]);
+      CHECK_EQUAL(2, memCast.ref<Data>().a[1]);
+      CHECK_EQUAL(3, memCast.ref<Data>().a[2]);
     }
 
     //*************************************************************************
     TEST(test_mem_cast_types_to_type)
     {
-      MemCastTypes memCastTypes; 
+      MemCastTypes memCastTypes;
 
       char* pbuffer = memCastTypes.data();
       *pbuffer = 123;
@@ -275,9 +289,11 @@ namespace
       CHECK_EQUAL(1.23, memCastTypes.ref<double>());
 
       *reinterpret_cast<Data*>(pbuffer) = { 123, 1.23, { 1, 2, 3 } };
-      CHECK(123 == memCastTypes.ref<Data>().c);
-      CHECK(1.23 == memCastTypes.ref<Data>().d);
-      CHECK((std::array { 1, 2, 3 }) == memCastTypes.ref<Data>().a);
+      CHECK_EQUAL(123, memCastTypes.ref<Data>().c);
+      CHECK_EQUAL(1.23, memCastTypes.ref<Data>().d);
+      CHECK_EQUAL(1, memCastTypes.ref<Data>().a[0]);
+      CHECK_EQUAL(2, memCastTypes.ref<Data>().a[1]);
+      CHECK_EQUAL(3, memCastTypes.ref<Data>().a[2]);
     }
   };
 }

@@ -5,7 +5,7 @@ Embedded Template Library.
 https://github.com/ETLCPP/etl
 https://www.etlcpp.com
 
-Copyright(c) 2018 jwellbelove
+Copyright(c) 2018 John Wellbelove
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files(the "Software"), to deal
@@ -31,11 +31,19 @@ SOFTWARE.
 #include <queue>
 
 #include "etl/queue.h"
+#include "etl/math.h"
 
 namespace
 {
   struct Item
   {
+    Item()
+      : c('a')
+      , i(1)
+      , d(1.2)
+    {
+    }
+
     Item(char c_, int i_, double d_)
       : c(c_),
         i(i_),
@@ -50,7 +58,9 @@ namespace
 
   bool operator == (const Item& lhs, const Item& rhs)
   {
+#include "etl/private/diagnostic_float_equal_push.h"
     return (lhs.c == rhs.c) && (lhs.i == rhs.i) && (lhs.d == rhs.d);
+#include "etl/private/diagnostic_pop.h"
   }
 
   struct ItemNTD
@@ -342,22 +352,23 @@ namespace
     //*************************************************************************
     TEST(test_multiple_emplace)
     {
-      etl::queue<Item, 4> queue;
+      etl::queue<Item, 5> queue;
 
-      queue.emplace('a', 1, 1.2);
-      queue.emplace('b', 2, 3.4);
-      queue.emplace('c', 3, 5.6);
-      queue.emplace('d', 4, 7.8);
-
-      CHECK_EQUAL(4U, queue.size());
+      queue.emplace();
+      queue.emplace('b', 2, 2.3);
+      queue.emplace('c', 3, 3.4);
+      queue.emplace('d', 4, 4.5);
+      queue.emplace('e', 5, 5.6);
 
       CHECK(queue.front() == Item('a', 1, 1.2));
       queue.pop();
-      CHECK(queue.front() == Item('b', 2, 3.4));
+      CHECK(queue.front() == Item('b', 2, 2.3));
       queue.pop();
-      CHECK(queue.front() == Item('c', 3, 5.6));
+      CHECK(queue.front() == Item('c', 3, 3.4));
       queue.pop();
-      CHECK(queue.front() == Item('d', 4, 7.8));
+      CHECK(queue.front() == Item('d', 4, 4.5));
+      queue.pop();
+      CHECK(queue.front() == Item('e', 5, 5.6));
       queue.pop();
     }
 
@@ -521,8 +532,10 @@ namespace
       queue.push(3);
       queue.push(4);
 
+#include "etl/private/diagnostic_self_assign_overloaded_push.h" 
       queue = queue;
-
+#include "etl/private/diagnostic_pop.h" 
+      
       CHECK(queue.max_size() == queue.size());
 
       CHECK_EQUAL(1, queue.front());

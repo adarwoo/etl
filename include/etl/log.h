@@ -7,7 +7,7 @@ Embedded Template Library.
 https://github.com/ETLCPP/etl
 https://www.etlcpp.com
 
-Copyright(c) 2014 jwellbelove
+Copyright(c) 2014 John Wellbelove
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files(the "Software"), to deal
@@ -31,9 +31,9 @@ SOFTWARE.
 #ifndef ETL_LOG_INCLUDED
 #define ETL_LOG_INCLUDED
 
-#include <stddef.h>
-
 #include "platform.h"
+
+#include <stddef.h>
 
 ///\defgroup log log
 /// log<N, BASE> : Calculates logs to any base, rounded down to the nearest integer.<br>
@@ -85,7 +85,7 @@ namespace etl
     };
   };
 
-#if ETL_CPP17_SUPPORTED
+#if ETL_USING_CPP17
   template <size_t NV, size_t BASE>
   inline constexpr size_t log_v = log<NV, BASE>::value;
 #endif
@@ -94,7 +94,7 @@ namespace etl
   ///\ingroup log
   /// Calculates base 2 logs.
   //***************************************************************************
-  template <const size_t NV>
+  template <size_t NV>
   struct log2
   {
     enum value_type
@@ -103,7 +103,7 @@ namespace etl
     };
   };
 
-#if ETL_CPP17_SUPPORTED
+#if ETL_USING_CPP17
   template <size_t NV>
   inline constexpr size_t log2_v = log2<NV>::value;
 #endif
@@ -112,7 +112,7 @@ namespace etl
   ///\ingroup log
   /// Calculates base 10 logs.
   //***************************************************************************
-  template <const size_t NV>
+  template <size_t NV>
   struct log10
   {
     enum value_type
@@ -121,7 +121,7 @@ namespace etl
     };
   };
 
-#if ETL_CPP17_SUPPORTED
+#if ETL_USING_CPP17
   template <size_t NV>
   inline constexpr size_t log10_v = log10<NV>::value;
 #endif

@@ -7,7 +7,7 @@ Embedded Template Library.
 https://github.com/ETLCPP/etl
 https://www.etlcpp.com
 
-Copyright(c) 2016 jwellbelove
+Copyright(c) 2016 John Wellbelove
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files(the "Software"), to deal
@@ -354,9 +354,23 @@ namespace etl
     /// If asserts or exceptions are enabled, emits vector_full if the vector is already full.
     ///\param value The value to add.
     //*********************************************************************
-    void emplace_back(parameter_t value)
+    reference emplace_back()
+    {
+      base_t::emplace_back(ETL_NULLPTR);
+
+      return back();
+    }
+
+    //*********************************************************************
+    /// Constructs a value at the end of the vector.
+    /// If asserts or exceptions are enabled, emits vector_full if the vector is already full.
+    ///\param value The value to add.
+    //*********************************************************************
+    reference emplace_back(parameter_t value)
     {
       base_t::emplace_back(value);
+
+      return back();
     }
 
     //*************************************************************************
@@ -374,7 +388,7 @@ namespace etl
     ///\param position The position to insert before.
     ///\param value    The value to insert.
     //*********************************************************************
-    iterator insert(iterator position, parameter_t value)
+    iterator insert(const_iterator position, parameter_t value)
     {
       return iterator(base_t::insert(base_t::iterator(position), value));
     }
@@ -382,7 +396,15 @@ namespace etl
     //*************************************************************************
     /// Emplaces a value to the vector at the specified position.
     //*************************************************************************
-    iterator emplace(iterator position, parameter_t value)
+    iterator emplace(const_iterator position)
+    {
+      return iterator(base_t::emplace(base_t::iterator(position), ETL_NULLPTR));
+    }
+
+    //*************************************************************************
+    /// Emplaces a value to the vector at the specified position.
+    //*************************************************************************
+    iterator emplace(const_iterator position, parameter_t value)
     {
       return iterator(base_t::emplace(base_t::iterator(position), value));
     }
@@ -394,7 +416,7 @@ namespace etl
     ///\param n        The number of elements to add.
     ///\param value    The value to insert.
     //*********************************************************************
-    void insert(iterator position, size_t n, parameter_t value)
+    void insert(const_iterator position, size_t n, parameter_t value)
     {
       base_t::insert(base_t::iterator(position), n, value);
     }
@@ -407,7 +429,7 @@ namespace etl
     ///\param last     The last + 1 element to add.
     //*********************************************************************
     template <class TIterator>
-    void insert(iterator position, TIterator first, TIterator last)
+    void insert(const_iterator position, TIterator first, TIterator last)
     {
       base_t::insert(base_t::iterator(position), first, last);
     }
@@ -423,6 +445,16 @@ namespace etl
     }
 
     //*********************************************************************
+    /// Erases an element.
+    ///\param i_element Iterator to the element.
+    ///\return An iterator pointing to the element that followed the erased element.
+    //*********************************************************************
+    iterator erase(const_iterator i_element)
+    {
+      return iterator(base_t::erase(base_t::const_iterator(i_element)));
+    }
+
+    //*********************************************************************
     /// Erases a range of elements.
     /// The range includes all the elements between first and last, including the
     /// element pointed by first, but not the one pointed by last.
@@ -430,9 +462,9 @@ namespace etl
     ///\param last  Iterator to the last element.
     ///\return An iterator pointing to the element that followed the erased element.
     //*********************************************************************
-    iterator erase(iterator first, iterator last)
+    iterator erase(const_iterator first, const_iterator last)
     {
-      return iterator(base_t::erase(base_t::iterator(first), base_t::iterator(last)));
+      return iterator(base_t::erase(base_t::const_iterator(first), base_t::const_iterator(last)));
     }
 
     //*************************************************************************
@@ -445,7 +477,7 @@ namespace etl
       return *this;
     }
 
-#if ETL_CPP11_SUPPORTED
+#if ETL_USING_CPP11
     //*************************************************************************
     /// Move assignment operator.
     //*************************************************************************
@@ -795,7 +827,7 @@ namespace etl
     ///\param position The position to insert before.
     ///\param value    The value to insert.
     //*********************************************************************
-    iterator insert(iterator position, parameter_t value)
+    iterator insert(const_iterator position, parameter_t value)
     {
       return iterator(base_t::insert(base_t::iterator(position), const_cast<T*>(value)));
     }
@@ -807,7 +839,7 @@ namespace etl
     ///\param n        The number of elements to add.
     ///\param value    The value to insert.
     //*********************************************************************
-    void insert(iterator position, size_t n, parameter_t value)
+    void insert(const_iterator position, size_t n, parameter_t value)
     {
       base_t::insert(base_t::iterator(position), n, const_cast<T*>(value));
     }
@@ -820,7 +852,7 @@ namespace etl
     ///\param last     The last + 1 element to add.
     //*********************************************************************
     template <class TIterator>
-    void insert(iterator position, TIterator first, TIterator last)
+    void insert(const_iterator position, TIterator first, TIterator last)
     {
       base_t::insert(base_t::iterator(position), first, last);
     }
@@ -836,6 +868,16 @@ namespace etl
     }
 
     //*********************************************************************
+    /// Erases an element.
+    ///\param i_element Iterator to the element.
+    ///\return An iterator pointing to the element that followed the erased element.
+    //*********************************************************************
+    iterator erase(const_iterator i_element)
+    {
+      return iterator(base_t::erase(base_t::iterator(i_element)));
+    }
+
+    //*********************************************************************
     /// Erases a range of elements.
     /// The range includes all the elements between first and last, including the
     /// element pointed by first, but not the one pointed by last.
@@ -843,7 +885,7 @@ namespace etl
     ///\param last  Iterator to the last element.
     ///\return An iterator pointing to the element that followed the erased element.
     //*********************************************************************
-    iterator erase(iterator first, iterator last)
+    iterator erase(const_iterator first, const_iterator last)
     {
       return iterator(base_t::erase(base_t::iterator(first), base_t::iterator(last)));
     }
@@ -858,7 +900,7 @@ namespace etl
       return *this;
     }
 
-#if ETL_CPP11_SUPPORTED
+#if ETL_USING_CPP11
     //*************************************************************************
     /// Move assignment operator.
     //*************************************************************************
@@ -944,7 +986,7 @@ namespace etl
   /// Less than or equal operator.
   ///\param lhs Reference to the first vector.
   ///\param rhs Reference to the second vector.
-  ///\return <b>true</b> if the first vector is lexigraphically less than or equal to the second, otherwise <b>false</b>
+  ///\return <b>true</b> if the first vector is lexicographically less than or equal to the second, otherwise <b>false</b>
   ///\ingroup vector
   //***************************************************************************
   template <typename T>
@@ -957,7 +999,7 @@ namespace etl
   /// Greater than or equal operator.
   ///\param lhs Reference to the first vector.
   ///\param rhs Reference to the second vector.
-  ///\return <b>true</b> if the first vector is lexigraphically greater than or equal to the second, otherwise <b>false</b>
+  ///\return <b>true</b> if the first vector is lexicographically greater than or equal to the second, otherwise <b>false</b>
   ///\ingroup vector
   //***************************************************************************
   template <typename T>

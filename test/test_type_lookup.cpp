@@ -5,7 +5,7 @@ Embedded Template Library.
 https://github.com/ETLCPP/etl
 https://www.etlcpp.com
 
-Copyright(c) 2017 jwellbelove
+Copyright(c) 2017 John Wellbelove
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files(the "Software"), to deal
@@ -31,6 +31,8 @@ SOFTWARE.
 #include "etl/type_lookup.h"
 
 #include <type_traits>
+
+#include "etl/private/diagnostic_useless_cast_push.h"
 
 namespace
 {
@@ -134,7 +136,7 @@ namespace
       CHECK((etl::is_same<Type16, typename Type_Id_Lookup16::type_from_id<Type16::ID>::type>::value));
     }
 
-#if !defined(ETL_TYPE_SELECT_FORCE_CPP03)
+#if !defined(ETL_TYPE_SELECT_FORCE_CPP03_IMPLEMENTATION)
     //*************************************************************************
     TEST(test_type_from_id_t_16)
     {
@@ -170,7 +172,7 @@ namespace
       CHECK((etl::is_same<Type16, typename Type_Id_Lookup8::type_from_id<Type16::ID>::type>::value));
     }
 
-#if !defined(ETL_TYPE_SELECT_FORCE_CPP03)
+#if !defined(ETL_TYPE_SELECT_FORCE_CPP03_IMPLEMENTATION)
     //*************************************************************************
     TEST(test_type_from_id_t_8)
     {
@@ -191,7 +193,7 @@ namespace
       CHECK((etl::is_same<Type16, typename Type_Id_Lookup1::type_from_id<Type16::ID>::type>::value));
     }
 
-#if !defined(ETL_TYPE_SELECT_FORCE_CPP03)
+#if !defined(ETL_TYPE_SELECT_FORCE_CPP03_IMPLEMENTATION)
     //*************************************************************************
     TEST(test_type_from_id_t_1)
     {
@@ -253,7 +255,7 @@ namespace
       CHECK_EQUAL((unsigned int)Type16::ID, (unsigned int)Type_Id_Lookup16::get_id_from_type(Type16()));
     }
 
-#if !defined(ETL_TYPE_SELECT_FORCE_CPP03)
+#if ETL_USING_CPP17 && !defined(ETL_TYPE_SELECT_FORCE_CPP03_IMPLEMENTATION)
     //*************************************************************************
     TEST(test_id_from_type_v_16)
     {
@@ -306,7 +308,7 @@ namespace
       CHECK_EQUAL((unsigned int)Type16::ID, (unsigned int)Type_Id_Lookup8::get_id_from_type(Type16()));
     }
 
-#if !defined(ETL_TYPE_SELECT_FORCE_CPP03)
+#if ETL_USING_CPP17 && !defined(ETL_TYPE_SELECT_FORCE_CPP03_IMPLEMENTATION)
     //*************************************************************************
     TEST(test_id_from_type_v_8)
     {
@@ -330,7 +332,7 @@ namespace
       CHECK_EQUAL((unsigned int)Type16::ID, (unsigned int)Type_Id_Lookup1::get_id_from_type(Type16()));
     }
 
-#if !defined(ETL_TYPE_SELECT_FORCE_CPP03)
+#if ETL_USING_CPP17 && !defined(ETL_TYPE_SELECT_FORCE_CPP03_IMPLEMENTATION)
     //*************************************************************************
     TEST(test_id_from_type_v_1)
     {
@@ -359,7 +361,7 @@ namespace
       CHECK((etl::is_same<Type15, typename Type_Type_Lookup16::type_from_type<Type16>::type>::value));
     }
 
-#if !defined(ETL_TYPE_SELECT_FORCE_CPP03)
+#if !defined(ETL_TYPE_SELECT_FORCE_CPP03_IMPLEMENTATION)
     //*************************************************************************
     TEST(test_type_from_type_t_16)
     {
@@ -395,7 +397,7 @@ namespace
       CHECK((etl::is_same<Type7, typename Type_Type_Lookup8::type_from_type<Type8>::type>::value));
     }
 
-#if !defined(ETL_TYPE_SELECT_FORCE_CPP03)
+#if !defined(ETL_TYPE_SELECT_FORCE_CPP03_IMPLEMENTATION)
     //*************************************************************************
     TEST(test_type_from_type_t_8)
     {
@@ -416,7 +418,7 @@ namespace
       CHECK((etl::is_same<Type2, typename Type_Type_Lookup1::type_from_type<Type1>::type>::value));
     }
 
-#if !defined(ETL_TYPE_SELECT_FORCE_CPP03)
+#if !defined(ETL_TYPE_SELECT_FORCE_CPP03_IMPLEMENTATION)
     //*************************************************************************
     TEST(test_type_from_type_t_1)
     {
@@ -425,3 +427,5 @@ namespace
 #endif
   };
 }
+
+#include "etl/private/diagnostic_pop.h"

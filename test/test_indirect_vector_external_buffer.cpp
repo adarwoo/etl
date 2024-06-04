@@ -5,7 +5,7 @@
 //https://github.com/ETLCPP/etl
 //https://www.etlcpp.com
 //
-//Copyright(c) 2019 jwellbelove
+//Copyright(c) 2019 John Wellbelove
 //
 //Permission is hereby granted, free of charge, to any person obtaining a copy
 //of this software and associated documentation files(the "Software"), to deal
@@ -149,7 +149,7 @@ namespace
 
       DataDC data(lookup, pool);
 
-      CHECK_EQUAL(data.size(), size_t(0UL));
+      CHECK_EQUAL(data.size(), 0UL);
       CHECK(data.empty());
       CHECK_EQUAL(data.capacity(), SIZE);
       CHECK_EQUAL(data.max_size(), SIZE);
@@ -223,7 +223,7 @@ namespace
       const NDC INITIAL_VALUE("1");
 
       std::vector<NDC> compare_data(INITIAL_SIZE, INITIAL_VALUE);
-      DataNDC data(size_t(5UL), NDC("1"), lookup, pool);
+      DataNDC data(5UL, NDC("1"), lookup, pool);
 
       CHECK(data.size() == INITIAL_SIZE);
       CHECK(!data.empty());
@@ -258,7 +258,7 @@ namespace
       CHECK(!data.empty());
     }
 
-#if ETL_USING_STL
+#if ETL_HAS_INITIALIZER_LIST
     //*************************************************************************
     TEST(test_constructor_initializer_list)
     {
@@ -364,6 +364,7 @@ namespace
       std::unique_ptr<uint32_t> p2(new uint32_t(2U));
       std::unique_ptr<uint32_t> p3(new uint32_t(3U));
       std::unique_ptr<uint32_t> p4(new uint32_t(4U));
+      std::unique_ptr<uint32_t> p5(new uint32_t(5U));
 
       Data data1(lookup1, pool1);
       data1.push_back(std::move(p1));
@@ -377,6 +378,7 @@ namespace
       CHECK(!bool(p4));
 
       Data data2(lookup2, pool2);
+      data2.push_back(std::move(p5));
       data2 = std::move(data1);
 
       CHECK_EQUAL(0U, data1.size());
@@ -428,6 +430,7 @@ namespace
       std::unique_ptr<uint32_t> p2(new uint32_t(2U));
       std::unique_ptr<uint32_t> p3(new uint32_t(3U));
       std::unique_ptr<uint32_t> p4(new uint32_t(4U));
+      std::unique_ptr<uint32_t> p5(new uint32_t(5U));
 
       Data data1(lookup1, pool1);
       data1.push_back(std::move(p1));
@@ -436,6 +439,7 @@ namespace
       data1.push_back(std::move(p4));
 
       Data data2(lookup2, pool2);
+      data2.push_back(std::move(p5));
 
       IData& idata1 = data1;
       IData& idata2 = data2;
@@ -463,7 +467,9 @@ namespace
       DataNDC data(initial_data.begin(), initial_data.end(), lookup1, pool1);
       DataNDC other_data(data, lookup2, pool2);
 
+#include "etl/private/diagnostic_self_assign_overloaded_push.h" 
       other_data = other_data;
+#include "etl/private/diagnostic_pop.h" 
 
       bool is_equal = std::equal(data.begin(),
                                  data.end(),
@@ -485,7 +491,9 @@ namespace
       const DataDC constData(10, lookup2, pool2);
 
       CHECK_EQUAL(&data[0], &(*data.begin()));
+      CHECK_EQUAL(&data[0], &(*data.cbegin()));
       CHECK_EQUAL(&constData[0], &(*constData.begin()));
+      CHECK_EQUAL(&constData[0], &(*constData.cbegin()));
     }
 
     //*************************************************************************
@@ -500,8 +508,10 @@ namespace
       DataDC data(10, lookup1, pool1);
       const DataDC constData(10, lookup2, pool2);
 
-      CHECK_EQUAL(&data[10], &(*data.end()));
-      CHECK_EQUAL(&constData[10], &(constData.end()));
+      CHECK(std::distance(data.begin(), data.end()) == 10U);
+      CHECK(std::distance(data.cbegin(), data.cend()) == 10U);
+      CHECK(std::distance(constData.begin(), constData.end()) == 10U);
+      CHECK(std::distance(constData.cbegin(), constData.cend()) == 10U);
     }
 
     //*************************************************************************
@@ -584,6 +594,17 @@ namespace
       data.resize(NEW_SIZE, INITIAL_VALUE);
 
       CHECK_EQUAL(data.size(), NEW_SIZE);
+    }
+
+    //*************************************************************************
+    TEST_FIXTURE(SetupFixture, test_reserve)
+    {
+      LookupNDC lookup;
+      PoolNDC   pool;
+      DataNDC   data(lookup, pool);
+
+      CHECK_NO_THROW(data.reserve(data.max_size()));
+      CHECK_THROW(data.reserve(data.max_size() + 1), etl::vector_out_of_bounds);
     }
 
     //*************************************************************************
@@ -1189,15 +1210,15 @@ namespace
       CompareDataNDC compare_data(initial_data.begin(), initial_data.end());
       DataNDC data(initial_data.begin(), initial_data.end(), lookup, pool);
 
-      compare_data.erase(compare_data.begin() + 2);
+      compare_data.erase(compare_data.cbegin() + 2);
 
-      data.erase(data.begin() + 2);
+      data.erase(data.cbegin() + 2);
 
       CHECK_EQUAL(compare_data.size(), data.size());
 
-      bool is_equal = std::equal(data.begin(),
-                                data.end(),
-                                compare_data.begin());
+      bool is_equal = std::equal(data.cbegin(),
+                                 data.cend(),
+                                 compare_data.cbegin());
 
       CHECK(is_equal);
     }
@@ -1211,15 +1232,15 @@ namespace
       CompareDataNDC compare_data(initial_data.begin(), initial_data.end());
       DataNDC data(initial_data.begin(), initial_data.end(), lookup, pool);
 
-      compare_data.erase(compare_data.begin() + 2, compare_data.begin() + 4);
+      compare_data.erase(compare_data.cbegin() + 2, compare_data.cbegin() + 4);
 
-      data.erase(data.begin() + 2, data.begin() + 4);
+      data.erase(data.cbegin() + 2, data.cbegin() + 4);
 
       CHECK_EQUAL(compare_data.size(), data.size());
 
-      bool is_equal = std::equal(data.begin(),
-                                data.end(),
-                                compare_data.begin());
+      bool is_equal = std::equal(data.cbegin(),
+                                 data.cend(),
+                                 compare_data.cbegin());
 
       CHECK(is_equal);
     }
@@ -1235,7 +1256,7 @@ namespace
       DataNDC data(compare_data.begin(), compare_data.end(), lookup, pool);
       data.clear();
 
-      CHECK_EQUAL(data.size(), size_t(0UL));
+      CHECK_EQUAL(data.size(), 0UL);
     }
 
     //*************************************************************************
@@ -1539,9 +1560,9 @@ namespace
     {
       struct functor
       {
-        void operator()(const NDC& ndc)
+        void operator()(const NDC& object)
         {
-          result += ndc.value;
+          result += object.value;
         }
 
         std::string result;
@@ -1573,9 +1594,9 @@ namespace
     {
       struct functor
       {
-        bool operator()(const NDC& ndc)
+        bool operator()(const NDC& object)
         {
-          return ndc.value == "4";
+          return object.value == "4";
         }
 
         std::string result;

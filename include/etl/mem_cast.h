@@ -7,7 +7,7 @@ Embedded Template Library.
 https://github.com/ETLCPP/etl
 https://www.etlcpp.com
 
-Copyright(c) 2021 jwellbelove
+Copyright(c) 2021 John Wellbelove
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files(the "Software"), to deal
@@ -31,9 +31,6 @@ SOFTWARE.
 #ifndef ETL_MEM_CAST_INCLUDED
 #define ETL_MEM_CAST_INCLUDED
 
-#include <stdint.h>
-#include <string.h>
-
 #include "platform.h"
 #include "memory.h"
 #include "static_assert.h"
@@ -44,6 +41,9 @@ SOFTWARE.
 #include "error_handler.h"
 #include "file_error_numbers.h"
 #include "binary.h"
+
+#include <stdint.h>
+#include <string.h>
 
 namespace etl
 {
@@ -166,7 +166,7 @@ namespace etl
       ::new (p) T(value);
     }
 
-#if ETL_CPP11_SUPPORTED
+#if ETL_USING_CPP11
     //***********************************
     /// Emplace from parameters
     //***********************************
@@ -315,6 +315,12 @@ namespace etl
     etl::uninitialized_buffer<Size, 1U, Alignment> buffer;
   };
 
+  template <size_t Size_, size_t Alignment_>
+  ETL_CONSTANT size_t mem_cast<Size_, Alignment_>::Size;
+
+  template <size_t Size_, size_t Alignment_>
+  ETL_CONSTANT size_t mem_cast<Size_, Alignment_>::Alignment;
+
   //*****************************************************************************
   /// mem_cast_ptr
   //*****************************************************************************
@@ -400,7 +406,7 @@ namespace etl
       ::new (p) T(value);
     }
 
-#if ETL_CPP11_SUPPORTED
+#if ETL_USING_CPP11
     //***********************************
     /// Emplace from parameters
     //***********************************
@@ -533,7 +539,7 @@ namespace etl
 
       const type p = reinterpret_cast<type>(pbuffer);    
 
-      return 1U << etl::count_trailing_zeros(p);
+      return size_t(1U) << etl::count_trailing_zeros(p);
     }
 
     //***********************************
@@ -572,7 +578,7 @@ namespace etl
   /// mem_cast_var
   /// mem_cast from a variadic list of types
   //*****************************************************************************
-#if ETL_CPP11_SUPPORTED && !defined(ETL_MEM_CAST_FORCE_CPP03)
+#if ETL_USING_CPP11 && !defined(ETL_MEM_CAST_FORCE_CPP03_IMPLEMENTATION)
   template <typename... TTypes>
   using mem_cast_types = etl::mem_cast<etl::largest<TTypes...>::size, etl::largest<TTypes...>::alignment>;
 #else
