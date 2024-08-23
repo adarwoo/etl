@@ -69,6 +69,11 @@ namespace
   // The Notification3 is passed by const reference.
   //*****************************************************************************
   typedef etl::observer<Notification1, Notification2&, const Notification3&> ObserverType;
+
+  //*****************************************************************************
+  // The observer base type that does not take a notification type.
+  //*****************************************************************************
+  typedef etl::observer<void, int> ObserverVoidIntType;
 }
 
 //*****************************************************************************
@@ -111,6 +116,30 @@ public:
 };
 
 //*****************************************************************************
+// The concrete observable 3 class.
+//*****************************************************************************
+class ObservableVoidInt : public etl::observable<ObserverVoidIntType, 2>
+{
+public:
+
+  //*********************************
+  // Notify all of the observers.
+  //*********************************
+  void send_notifications()
+  {
+    notify_observers();
+  }
+
+  //*********************************
+  // Notify all of the observers.
+  //*********************************
+  void send_notifications(int n)
+  {
+    notify_observers(n);
+  }
+};
+
+//*****************************************************************************
 // The first observer type.
 // If any one of the overloads is missing or a parameter declaration is incorrect
 // then the class will be 'abstract' and will not compile.
@@ -120,9 +149,9 @@ class Observer1 : public ObserverType
 public:
 
   Observer1()
-    : data1_count(0),
-      data2_count(0),
-      data3_count(0)
+    : data1_count(0)
+    , data2_count(0)
+    , data3_count(0)
   {
   }
 
@@ -165,9 +194,9 @@ class Observer2 : public ObserverType
 public:
 
   Observer2()
-    : data1_count(0),
-      data2_count(0),
-      data3_count(0)
+    : data1_count(0)
+    , data2_count(0)
+    , data3_count(0)
   {
   }
 
@@ -198,6 +227,41 @@ public:
   int data1_count;
   int data2_count;
   int data3_count;
+};
+
+//*****************************************************************************
+// The third observer type.
+// If any one of the overloads is missing or a parameter declaration is incorrect
+// then the class will be 'abstract' and will not compile.
+//*****************************************************************************
+class ObserverVoidInt : public ObserverVoidIntType
+{
+public:
+
+  ObserverVoidInt()
+    : data1_count(0)
+    , data2_count(0)
+  {
+  }
+
+  //*******************************************
+  // Notification1
+  //*******************************************
+  void notification() override
+  {
+    ++data1_count;
+  }
+
+  //*******************************************
+  // Notification2
+  //*******************************************
+  void notification(int)  override
+  {
+    ++data2_count;
+  }
+
+  int data1_count;
+  int data2_count;
 };
 
 namespace
@@ -485,6 +549,27 @@ namespace
 
       observable.clear_observers();
       CHECK_EQUAL(0UL, observable.number_of_observers());
+    }
+
+    //*************************************************************************
+    TEST(test_void_int_observable)
+    {
+      // The observable objects.
+      ObservableVoidInt observable;
+
+      // The observer objects.
+      ObserverVoidInt observer;
+
+      observable.add_observer(observer);
+
+      // Send the notifications.
+      observable.send_notifications();
+      CHECK_EQUAL(1U, observer.data1_count);
+      CHECK_EQUAL(0U, observer.data2_count);
+
+      observable.send_notifications(1);
+      CHECK_EQUAL(1U, observer.data1_count);
+      CHECK_EQUAL(1U, observer.data2_count);
     }
   }
 }

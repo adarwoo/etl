@@ -1,4 +1,87 @@
 ﻿===============================================================================
+20.39.3
+
+Updates:
+Removed C++11 restriction on etl::observer::notification
+
+Fixes:
+#917 unaligned_type doesn't compile with floating point types
+
+Pull Requests:
+#946 Make include paths to private files relative
+
+===============================================================================
+20.39.2
+
+Removed EmbeddedTemplateLibrary-20.39.0.tar.gz from project.
+
+===============================================================================
+20.39.1
+
+Fixes:
+#940 Allow etl::observer notification without argument
+     Added a void specialisation to the < C++11 code.
+#942 Warning on pragma c++20-compat
+
+Updates:
+Added etl::count_of, etl::has_duplicates, etl::has_duplicates_of
+
+===============================================================================
+20.39.0
+
+Refactored:
+Breaking change.
+Modified io_port classes so that they are not derived from iterator types.
+    Added iterator and const_iterator types.
+    Added iter() and citer() member functions to get an iterator.
+    Added &= |= ^= <<= >>= and ~ operators (only available for io_port_rw and io_port_wos types)
+    Added static asserts to only allow integral types.
+
+Fixes:
+#921 unique_ptr reset
+#923 Missing equality operator for class expected 
+#930 Unused parameter warnings
+#931 Using etl::make_vector to make a vector of two pairs causes a compile error
+
+Features:
+#918 Request for additional operator support for etl::io_port_*
+#919 callback_timer: expose callback_timer_data::is_active() as icallback_timer public method 
+#920 Define ETL_USING_LEGACY_VARIANT as a convenience macro for code that tries to support both new and legacy variants
+#940 Allow etl::observer notification without argument
+
+Pull Requests
+#905 Add-support-for-type_identity
+#909 fix c++20-compat false positive
+#914 Fix doc comment for pool::allocate()
+#924 Add an etl::nullptr_t type to <etl/nullptr.h>
+#925 Add equality operators for class expected
+#926 Fix issue #923 equality operator for class expected
+#927 Fix missing partial specialisation equal operators
+#928 Add missing swap implementations for expected
+#929 Fix run-tests.sh script
+#932 Fix issue #931 Using etl::make_vector to make a vector of two pairs causes a compile error
+#934 Fixes compiler detection with Wundef
+#935 Added 20 bit integral limits (MSP430 devices)
+     New configuration macro, ETL_USE_20BIT_TYPES, which controls the definition of ETL_USING_20BIT_TYPES and ETL_NOT_USING_20BIT_TYPES.
+#939 Fix histogram indexing when accessed via operator[]
+
+===============================================================================
+20.38.17
+
+Fixes:
+#895 Removed std algorithm calls from algorithm.h
+
+Features:
+Added Base64 codecs. RFC2152, RFC3501, RFC4648 and RFC4648-URL
+Added parameter_type_t for C++11
+
+Pull Requests:
+#905 Added support for type identity
+
+Other:
+Reenabled address sanitizer for VS2022
+
+===============================================================================
 20.38.16
 
 Fixes:

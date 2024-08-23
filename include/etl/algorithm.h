@@ -342,6 +342,7 @@ namespace etl
   //***************************************************************************
   // Pointers
   template <typename TIterator>
+  ETL_CONSTEXPR14
   typename etl::enable_if<etl::is_pointer<TIterator>::value, void>::type
     reverse(TIterator b, TIterator e)
   {
@@ -357,6 +358,7 @@ namespace etl
 
   // Non-pointers
   template <typename TIterator>
+  ETL_CONSTEXPR14
   typename etl::enable_if<!etl::is_pointer<TIterator>::value, void>::type
     reverse(TIterator b, TIterator e)
   {
@@ -1293,7 +1295,7 @@ namespace etl
 
       TIterator next = middle;
       TIterator result = first;
-      std::advance(result, std::distance(middle, last));
+      etl::advance(result, etl::distance(middle, last));
 
       while (first != next)
       {

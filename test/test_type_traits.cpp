@@ -122,6 +122,13 @@ namespace
     NotDefaultConstructible(NotDefaultConstructible&&) = delete;
     NotDefaultConstructible& operator =(NotDefaultConstructible&) = delete;
   };
+
+  // A function to test etl::type_identity.
+  template <typename T>
+  T type_identity_test_add(T first, typename etl::type_identity<T>::type second)
+  {
+    return first + second;
+  }
 }
 
 // Definitions for when the STL and compiler built-ins are not available.
@@ -594,7 +601,7 @@ namespace
         Two
       };
 
-      CHECK((etl::is_same<etl::make_signed<__underlying_type(ue)>::type, std::make_signed<ue>::type>::value));
+      CHECK((etl::is_same<etl::make_signed<typename std::underlying_type<ue>::type>::type, std::make_signed<ue>::type>::value));
 
       enum class se : int8_t
       {
@@ -602,7 +609,7 @@ namespace
         Two
       };
 
-      CHECK((etl::is_same<etl::make_signed<__underlying_type(se)>::type, std::make_signed<se>::type>::value));
+      CHECK((etl::is_same<etl::make_signed<typename std::underlying_type<se>::type>::type, std::make_signed<se>::type>::value));
     }
 
     //*************************************************************************
@@ -636,7 +643,7 @@ namespace
         Two
       };
 
-      CHECK((etl::is_same<etl::make_unsigned<__underlying_type(ue)>::type, std::make_unsigned<ue>::type>::value));
+      CHECK((etl::is_same<etl::make_unsigned<typename std::underlying_type<ue>::type>::type, std::make_unsigned<ue>::type>::value));
 
       enum class se : int8_t
       {
@@ -644,7 +651,7 @@ namespace
         Two
       };
 
-      CHECK((etl::is_same<etl::make_unsigned<__underlying_type(se)>::type, std::make_unsigned<se>::type>::value));
+      CHECK((etl::is_same<etl::make_unsigned<typename std::underlying_type<se>::type>::type, std::make_unsigned<se>::type>::value));
     }
 
     //*************************************************************************
@@ -1318,6 +1325,58 @@ namespace
 #else
     CHECK_TRUE(bool(etl::is_base_of_all<Base, D1, D2, D3>::value));
     CHECK_FALSE(bool(etl::is_base_of_all<Base, D1, D2, D3, D4>::value));
+#endif
+  }
+
+  //*************************************************************************
+  TEST(test_type_identity) 
+  {
+    CHECK_CLOSE(type_identity_test_add(1.5f, 2), 3.5f, 0.01f);
+  }
+
+  //*************************************************************************
+  TEST(test_has_duplicates)
+  {
+#if ETL_USING_CPP17
+    CHECK_FALSE((etl::has_duplicates_v<char>));
+    CHECK_FALSE((etl::has_duplicates_v<char, int, double>));
+    CHECK_TRUE((etl::has_duplicates_v<char, int, char>));
+#else
+    CHECK_FALSE((etl::has_duplicates<char>::value));
+    CHECK_FALSE((etl::has_duplicates<char, int, double>::value));
+    CHECK_TRUE((etl::has_duplicates<char, int, char>::value));
+#endif
+  }
+
+  //*************************************************************************
+  TEST(test_has_duplicates_of)
+  {
+#if ETL_USING_CPP17
+    CHECK_FALSE((etl::has_duplicates_of_v<char>));
+    CHECK_TRUE((etl::has_duplicates_of_v<char, char, int, char>)); // char is duplicated.
+    CHECK_FALSE((etl::has_duplicates_of_v<int, char, int, char>)); // int is not duplicated.
+#else
+    CHECK_FALSE((etl::has_duplicates_of<char>::value));
+    CHECK_TRUE((etl::has_duplicates_of<char, char, int, char>::value)); // char is duplicated.
+    CHECK_FALSE((etl::has_duplicates_of<int, char, int, char>::value)); // int is not duplicated.
+#endif
+  }
+
+  //*************************************************************************
+  TEST(test_count_of)
+  {
+#if ETL_USING_CPP17
+    CHECK_EQUAL(0, (etl::count_of_v<char>));
+    CHECK_EQUAL(0, (etl::count_of_v<char, int>));
+    CHECK_EQUAL(1, (etl::count_of_v<char, char>));
+    CHECK_EQUAL(1, (etl::count_of_v<char, int, char>));
+    CHECK_EQUAL(2, (etl::count_of_v<char, int, char, double, char>));
+#else
+    CHECK_EQUAL(0, (etl::count_of<char>::value));
+    CHECK_EQUAL(0, (etl::count_of<char, int>::value));
+    CHECK_EQUAL(1, (etl::count_of<char, char>::value));
+    CHECK_EQUAL(1, (etl::count_of<char, int, char>::value));
+    CHECK_EQUAL(2, (etl::count_of<char, int, char, double, char>::value));
 #endif
   }
 }
